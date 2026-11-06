@@ -1,1 +1,78 @@
+name: radar
 
+# GitHub 的定时任务是“尽力而为”，可能延迟甚至漏触发，所以：
+#  1) 日报窗口（北京 10:00–14:00）内安排了 4 次补跑，账本保证只发一次；
+#  2) 14:05（北京）有一次 watchdog，日报没发完会私信管理员；
+#  3) 强烈建议再配一个外部定时器（如 cron-job.org）调用 workflow_dispatch，见 README。
+on:
+  schedule:
+    - cron: "7 2 * * *"      # 北京 10:07
+    - cron: "37 2 * * *"     # 北京 10:37（补跑）
+    - cron: "17 3 * * *"     # 北京 11:17（补跑）
+    - cron: "47 4 * * *"     # 北京 12:47（补跑）
+    - cron: "5 6 * * *"      # 北京 14:05（watchdog）
+    - cron: "37 9 * * 5"     # 周五北京 17:37（周回顾）
+    - cron: "17 10 * * 5"    # 周五北京 18:17（补跑）
+    - cron: "47 11 * * 5"    # 周五北京 19:47（补跑）
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "daily/weekly=忽略时间窗强制运行（测试频道时用）；doctor=只检查所有数据源状态，不发送"
+        type: choice
+        options: ["", "daily", "weekly", "doctor"]
+        default: ""
+
+concurrency:
+  group: radar
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      ADMIN_CHAT_ID: ${{ secrets.ADMIN_CHAT_ID }}
+      ADMIN_USER_IDS: ${{ secrets.ADMIN_USER_IDS }}
+      DRAMA_CHAT_ID: ${{ secrets.DRAMA_CHAT_ID }}
+      LLM_PROVIDER: ${{ secrets.LLM_PROVIDER }}
+      LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+      LLM_MODEL: ${{ secrets.LLM_MODEL }}
+      LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
+      TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+      RSSHUB_BASE: ${{ secrets.RSSHUB_BASE }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: 运行（到点才发，已发不重发）
+        run: |
+          if [ "${{ github.event.inputs.force }}" = "doctor" ]; then
+            python -m radar doctor
+          elif [ -n "${{ github.event.inputs.force }}" ]; then
+            python -m radar run --force "${{ github.event.inputs.force }}"
+          else
+            python -m radar run
+          fi
+      - name: 日报是否按时发出
+        if: always()
+        run: python -m radar watchdog || true
+      - name: 保存状态（账本、历史、归档）
+        if: always()
+        run: |
+          git config user.name "radar-bot"
+          git config user.email "radar-bot@users.noreply.github.com"
+          git add state archive
+          if ! git diff --cached --quiet; then
+            git commit -m "state $(date -u +%F-%H%M)"
+            git pull --rebase --autostash || true
+            git push
+          fi
+      - name: 失败告警
+        if: failure()
+        run: python -m radar alert --text "⚠️ 雷达运行失败，请打开 GitHub Actions 查看日志：${{ github.server_url }}/${{ github.repository }}/actions"
