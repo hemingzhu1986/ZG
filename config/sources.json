@@ -1,0 +1,72 @@
+{
+  "_说明": "enabled=false 的源默认不运行；experimental=true 表示我没能在联网环境验证过，请先运行 python -m radar doctor 查看真实状态。group+role=fallback 表示主源失败或为空时才启用的备用源。",
+  "sources": [
+    {"id": "google_trends_us", "name": "谷歌趋势·美国", "type": "google_trends", "region": "intl", "kind": "trend",
+     "url": "https://trends.google.com/trending/rss?geo=US", "limit": 20, "weight": 1.0, "enabled": true},
+
+    {"id": "wikipedia_top_en", "name": "维基百科英文版·日浏览榜", "type": "wikipedia_top", "region": "intl", "kind": "rank",
+     "project": "en.wikipedia", "limit": 15, "fetch_summary": true, "weight": 0.9, "enabled": true},
+
+    {"id": "mastodon_links", "name": "Mastodon·热门链接", "type": "mastodon_trends", "region": "intl", "kind": "trend",
+     "instance": "https://mastodon.social", "endpoint": "links", "limit": 10, "weight": 0.8, "enabled": true, "experimental": true},
+
+    {"id": "kym_news", "name": "梗百科 KYM", "type": "rss", "region": "intl", "kind": "community",
+     "url": "https://knowyourmeme.com/newsfeed.rss", "limit": 8, "max_age_hours": 72, "weight": 1.0, "enabled": true, "experimental": true},
+
+    {"id": "dexerto_rss", "name": "Dexerto", "type": "rss", "region": "intl", "kind": "community",
+     "url": "https://www.dexerto.com/feed/", "limit": 8, "max_age_hours": 36, "weight": 0.9, "enabled": true, "experimental": true},
+
+    {"id": "thr_rss", "name": "好莱坞报道者 THR", "type": "rss", "region": "intl", "kind": "news",
+     "url": "https://www.hollywoodreporter.com/feed/", "limit": 8, "max_age_hours": 36, "weight": 0.75, "enabled": true},
+
+    {"id": "deadline_rss", "name": "Deadline", "type": "rss", "region": "intl", "kind": "news",
+     "url": "https://deadline.com/feed/", "limit": 8, "max_age_hours": 36, "weight": 0.75, "enabled": true, "experimental": true},
+
+    {"id": "rollingstone_rss", "name": "滚石 Rolling Stone", "type": "rss", "region": "intl", "kind": "news",
+     "url": "https://www.rollingstone.com/feed/", "limit": 8, "max_age_hours": 36, "weight": 0.75, "enabled": true, "experimental": true},
+
+    {"id": "npr_rss", "name": "NPR 文化报道", "type": "rss", "region": "intl", "kind": "news",
+     "url": "https://feeds.npr.org/1045/rss.xml", "limit": 5, "max_age_hours": 36, "weight": 0.7, "enabled": true},
+
+    {"id": "reddit_popculture", "name": "Reddit·流行文化", "type": "rss", "region": "intl", "kind": "community",
+     "url": "https://www.reddit.com/r/popculturechat/top/.rss?t=day", "limit": 10, "ranked": true, "weight": 1.0,
+     "enabled": false, "experimental": true, "_note": "2026年5月起 Reddit 封锁云服务器 IP；仅在你有可用出口时再启用"},
+
+    {"id": "reddit_askreddit", "name": "Reddit·AskReddit", "type": "rss", "region": "intl", "kind": "community",
+     "url": "https://www.reddit.com/r/AskReddit/top/.rss?t=day", "limit": 10, "ranked": true, "weight": 0.8,
+     "enabled": false, "experimental": true},
+
+    {"id": "bilibili_ranking", "name": "哔哩哔哩·全站榜", "type": "bilibili_ranking", "region": "cn", "kind": "rank",
+     "url": "https://api.bilibili.com/x/web-interface/ranking/v2?rid=0&type=all", "limit": 12, "group": "bilibili", "weight": 1.0, "enabled": true},
+    {"id": "bilibili_rsshub", "name": "哔哩哔哩·全站榜（RSSHub 备用）", "type": "rss", "region": "cn", "kind": "rank",
+     "url": "{RSSHUB_BASE}/bilibili/ranking/0/3/1", "limit": 12, "ranked": true, "group": "bilibili", "role": "fallback", "weight": 0.9,
+     "enabled": true, "experimental": true},
+
+    {"id": "weibo_hot", "name": "微博·热搜", "type": "weibo_hot", "region": "cn", "kind": "trend",
+     "url": "https://weibo.com/ajax/side/hotSearch", "limit": 15, "group": "weibo", "weight": 1.0, "enabled": true, "experimental": true},
+    {"id": "weibo_rsshub", "name": "微博·热搜（RSSHub 备用）", "type": "rss", "region": "cn", "kind": "trend",
+     "url": "{RSSHUB_BASE}/weibo/search/hot", "limit": 15, "ranked": true, "group": "weibo", "role": "fallback", "weight": 0.9,
+     "enabled": true, "experimental": true},
+
+    {"id": "zhihu_rsshub", "name": "知乎·热榜（RSSHub）", "type": "rss", "region": "cn", "kind": "trend",
+     "url": "{RSSHUB_BASE}/zhihu/hotlist", "limit": 12, "ranked": true, "weight": 0.9, "enabled": true, "experimental": true},
+
+    {"id": "duanju_charts", "name": "短剧榜单聚合（第三方）", "type": "html_links", "region": "cn", "kind": "chart",
+     "url": "https://www.juduanduan.com/bangdan/3.shtml", "include": "热榜|热播榜|热力榜|大盘", "limit": 6, "fetch_detail": true,
+     "weight": 1.0, "enabled": true, "experimental": true,
+     "_note": "第三方转载 DataEye 榜单；页面若超过 3 天未更新会被自动标记为 stale 并剔除"},
+
+    {"id": "tmdb_movies", "name": "TMDB·电影日趋势", "type": "tmdb_chart", "section": "screen", "region": "intl", "kind": "chart",
+     "media": "movie", "limit": 5, "enabled": true},
+    {"id": "tmdb_tv", "name": "TMDB·剧集日趋势", "type": "tmdb_chart", "section": "screen", "region": "intl", "kind": "chart",
+     "media": "tv", "limit": 5, "enabled": true},
+
+    {"id": "adult_news", "name": "成人平台行业观察（主流媒体报道）", "type": "rss", "section": "adult", "region": "intl", "kind": "news",
+     "url": "https://news.google.com/rss/search?q=%28Pornhub+OR+Aylo+OR+XVideos+OR+%22adult+industry%22%29+%28%22age+verification%22+OR+regulation+OR+lawsuit+OR+study+OR+report%29+when%3A7d&hl=en-US&gl=US&ceid=US:en",
+     "limit": 8, "max_age_hours": 168, "weight": 1.0, "enabled": true,
+     "domain_allow": ["wired.com", "theguardian.com", "reuters.com", "apnews.com", "bbc.com", "bbc.co.uk", "nytimes.com",
+                      "washingtonpost.com", "axios.com", "theverge.com", "techcrunch.com", "404media.co", "cnn.com",
+                      "npr.org", "politico.com", "bloomberg.com", "ft.com", "theatlantic.com", "slate.com", "vice.com"],
+     "domain_deny": ["pornhub.com", "xvideos.com", "xhamster.com", "xnxx.com", "onlyfans.com", "redtube.com", "youporn.com"]}
+  ]
+}

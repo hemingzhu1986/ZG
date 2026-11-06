@@ -1,0 +1,205 @@
+"""命令行。常用：
+  python -m radar doctor                 检查所有数据源的真实状态（首次部署必跑）
+  python -m radar build --out out        只生成不发送（预览）
+  python -m radar run                    正式运行：到点才发，已发不重发
+  python -m radar run --force daily      忽略时间窗强制跑日报（测试频道用）
+"""
+from __future__ import annotations
+import argparse
+import datetime as dt
+import json
+import os
+import sys
+from pathlib import Path
+
+from . import config, health, inbox, schedule
+from .llm import LLM
+from .pipeline import build_daily, build_weekly, compact
+from .publish import publish
+from .sources import Ctx
+from .collect import collect
+from .state import ARCHIVE, STATE, History, Ledger, read_json, write_json
+from .telegram import Telegram
+from .translate import Translator
+
+
+def _env() -> dict:
+    return dict(os.environ)
+
+
+def cmd_doctor(a) -> int:
+    settings, cfgs = config.load_settings(), config.load_sources()
+    now = dt.datetime.now(dt.timezone.utc)
+    only = set(a.only.split(",")) if a.only else None
+    res = collect(cfgs, Ctx(now=now, env=_env(), settings=settings), only)
+    print(health.source_table(res).replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">"))
+    ok = sum(r.status == "ok" for r in res)
+    print(f"\n正常 {ok}/{len(res)}。experimental 的源失败属正常现象——以此处输出为准，把失败的源在 config/sources.json 里关掉或换 URL。")
+    if a.json:
+        write_json(STATE / "source_health.json", [{"id": r.id, "status": r.status, "count": r.count,
+                                                    "error": r.error, "secs": r.secs} for r in res])
+    return 0
+
+
+def _write_out(ed, out: Path) -> None:
+    out.mkdir(parents=True, exist_ok=True)
+    seen = set()
+    for p in list(ed.parts) + list(ed.preview_parts):
+        if p["key"] in seen:
+            continue
+        seen.add(p["key"])
+        (out / f"{ed.date}-{p['key'].replace('#', '_')}.html.txt").write_text(p["text"], encoding="utf-8")
+    write_json(out / f"{ed.date}-{ed.kind}-items.json", [compact(i) for i in ed.items])
+
+
+def cmd_build(a) -> int:
+    settings, cfgs, lex, env = config.load_settings(), config.load_sources(), config.load_lexicon(), _env()
+    now = dt.datetime.now(dt.timezone.utc)
+    date = a.date or schedule.local_now(settings["timezone"], now).date().isoformat()
+    history = History()
+    llm = None if a.no_llm else LLM.from_env(env)
+    override = json.loads(Path(a.from_items).read_text(encoding="utf-8")) if a.from_items else None
+    if override:
+        settings["free_translate"]["enabled"] = False       # 离线演示不联网
+    tr = Translator(settings["free_translate"]["enabled"], settings["free_translate"]["daily_cap"])
+    if a.kind == "weekly":
+        ed = build_weekly(date, now, settings, lex, env, llm, history)
+    else:
+        ed = build_daily(date, now, settings, cfgs, lex, env, llm, tr, history, override=override)
+    _write_out(ed, Path(a.out))
+    print(f"已生成 {len(ed.parts) + len([p for p in ed.preview_parts if p['key'] not in {x['key'] for x in ed.parts}])} 条消息 → {a.out}/（未发送）")
+    for p in list(ed.parts) + [p for p in ed.preview_parts if p['key'] not in {x['key'] for x in ed.parts}]:
+        print(f"  {p['key']}: {len(p['text'])} 字符")
+    for n in ed.notes:
+        print(n)
+    return 0
+
+
+def cmd_run(a) -> int:
+    settings, cfgs, lex, env = config.load_settings(), config.load_sources(), config.load_lexicon(), _env()
+    token = env.get("TELEGRAM_BOT_TOKEN", "")
+    if not token or not env.get("TELEGRAM_CHAT_ID"):
+        print("缺少 TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID")
+        return 2
+    now = dt.datetime.now(dt.timezone.utc)
+    local = schedule.local_now(settings["timezone"], now)
+    kind = a.force or schedule.due(local, settings["schedule"])
+    if not kind:
+        print(f"当前 {local:%H:%M}（北京时间）不在发送窗口，退出。")
+        return 0
+    date = local.date().isoformat()
+    ledger, history = Ledger(), History()
+    flag = f"_complete_{kind}"
+    if ledger.flag(date, flag) and not a.force:
+        print(f"{date} {kind} 已完成，退出。")
+        return 0
+    tg = Telegram(token, settings["telegram"]["send_interval_seconds"])
+    admin = env.get("ADMIN_CHAT_ID", "")
+    llm = LLM.from_env(env)
+    tr = Translator(settings["free_translate"]["enabled"], settings["free_translate"]["daily_cap"])
+
+    # 冻结文本：同一天第二次触发只补发没发出的那几条，不会内容前后不一致
+    staged_path = STATE / "staged" / f"{date}-{kind}.json"
+    staged = read_json(staged_path, None)
+    ed = None
+    if staged is None:
+        if kind == "daily":
+            ed = build_daily(date, now, settings, cfgs, lex, env, llm, tr, history,
+                             inbox_items=inbox.poll(tg, env, now))
+        else:
+            ed = build_weekly(date, now, settings, lex, env, llm, history)
+        tr.save()
+        write_json(staged_path, {"parts": ed.parts})
+        parts = ed.parts
+    else:
+        parts = staged["parts"]
+        print("使用已冻结的当日内容，仅补发未发送的消息。")
+
+    # 目标聊天未设置的部分（如未配置短剧群）不发送
+    sendable = [p for p in parts if p["chat_id"]]
+    res = publish(sendable, ledger, tg, date)
+    print(f"发送结果：成功 {len(res['sent'])}｜已发过 {len(res['skipped'])}｜失败 {len(res['failed'])}｜待核实 {len(res['uncertain'])}")
+
+    if ed is not None:
+        out = ARCHIVE / date
+        _write_out(ed, out)
+        history.save(date, [compact(i) for i in ed.items],
+                     {"drama": ed.drama_cards, "kind": kind})
+        write_json(out / "report.json", {"gaps": ed.gaps, "drops": ed.drops, "enrich": ed.enrich_stats,
+                                         "sources": [{"id": r.id, "status": r.status, "count": r.count,
+                                                      "error": r.error} for r in ed.results]})
+    if not res["failed"] and not res["uncertain"]:
+        ledger.mark(date, flag, True)
+    if ed is not None and admin and (settings["admin"]["daily_summary"] or res["failed"] or res["uncertain"]):
+        try:
+            tg.send(admin, health.admin_report(date, ed.results, ed.gaps, ed.drops, ed.enrich_stats, llm.available,
+                                               res, ed.notes), silent=True)
+        except Exception as e:
+            print(f"管理员报告发送失败：{type(e).__name__}")
+    ledger.prune()
+    return 1 if (res["failed"] or res["uncertain"]) else 0
+
+
+def cmd_watchdog(a) -> int:
+    """日报窗口过后仍未完成 → 通知管理员。建议每天 14:05（北京）跑一次。"""
+    settings, env = config.load_settings(), _env()
+    now = dt.datetime.now(dt.timezone.utc)
+    local = schedule.local_now(settings["timezone"], now)
+    date = local.date().isoformat()
+    if schedule.past_deadline(local, settings["schedule"], "daily") and not Ledger().flag(date, "_complete_daily"):
+        msg = f"⚠️ {date} 的每日精选在截止时间后仍未完成发送，请检查运行记录。"
+        print(msg)
+        if env.get("TELEGRAM_BOT_TOKEN") and env.get("ADMIN_CHAT_ID"):
+            Telegram(env["TELEGRAM_BOT_TOKEN"]).send(env["ADMIN_CHAT_ID"], msg, html_mode=False)
+        return 1
+    print("日报状态正常。")
+    return 0
+
+
+def cmd_alert(a) -> int:
+    env = _env()
+    if not (env.get("TELEGRAM_BOT_TOKEN") and env.get("ADMIN_CHAT_ID")):
+        print(a.text)
+        return 0
+    Telegram(env["TELEGRAM_BOT_TOKEN"]).send(env["ADMIN_CHAT_ID"], a.text, html_mode=False)
+    return 0
+
+
+def cmd_send_test(a) -> int:
+    env = _env()
+    tg = Telegram(env["TELEGRAM_BOT_TOKEN"])
+    chat = env.get(a.to.upper() + "_CHAT_ID") or env.get("TELEGRAM_CHAT_ID")
+    mid = tg.send(chat, "✅ 织光内容雷达 v2 连通性测试", silent=True, html_mode=False)
+    print("已发送，message_id =", mid)
+    return 0
+
+
+def cmd_resolve(a) -> int:
+    Ledger().set(a.date, a.key, status=a.status)
+    print(f"已将 {a.date} {a.key} 标记为 {a.status}")
+    return 0
+
+
+def main(argv=None) -> int:
+    ap = argparse.ArgumentParser(prog="radar", description="织光内容雷达 v2")
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    d = sub.add_parser("doctor"); d.add_argument("--only"); d.add_argument("--json", action="store_true"); d.set_defaults(fn=cmd_doctor)
+    b = sub.add_parser("build"); b.add_argument("--kind", default="daily", choices=["daily", "weekly"])
+    b.add_argument("--date"); b.add_argument("--from-items"); b.add_argument("--no-llm", action="store_true")
+    b.add_argument("--out", default="out"); b.set_defaults(fn=cmd_build)
+    r = sub.add_parser("run"); r.add_argument("--force", choices=["daily", "weekly"]); r.set_defaults(fn=cmd_run)
+    sub.add_parser("watchdog").set_defaults(fn=cmd_watchdog)
+    al = sub.add_parser("alert"); al.add_argument("--text", required=True); al.set_defaults(fn=cmd_alert)
+    st = sub.add_parser("send-test"); st.add_argument("--to", default="main", choices=["main", "admin", "drama"]); st.set_defaults(fn=cmd_send_test)
+    rv = sub.add_parser("resolve"); rv.add_argument("--date", required=True); rv.add_argument("--key", required=True)
+    rv.add_argument("--status", required=True, choices=["sent", "failed"]); rv.set_defaults(fn=cmd_resolve)
+    a = ap.parse_args(argv)
+    try:
+        return a.fn(a)
+    except Exception as e:
+        print(f"运行失败：{type(e).__name__}: {e}")
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

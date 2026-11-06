@@ -1,0 +1,7 @@
+# 方案 B：任意 Linux 服务器（含云厂商免费/低价小机型）。
+# 每 10 分钟触发一次；程序自己判断是否到点、是否已发，所以多触发无害。
+CRON_TZ=Asia/Shanghai
+*/10 * * * *  cd /opt/radar && set -a && . ./.env && set +a && /usr/bin/python3 -m radar run >> logs/radar.log 2>&1
+5 14 * * *    cd /opt/radar && set -a && . ./.env && set +a && /usr/bin/python3 -m radar watchdog >> logs/radar.log 2>&1
+# 可选：把运行日志控制在合理大小
+0 4 * * 0     tail -n 2000 /opt/radar/logs/radar.log > /opt/radar/logs/radar.log.tmp && mv /opt/radar/logs/radar.log.tmp /opt/radar/logs/radar.log

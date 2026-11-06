@@ -1,0 +1,43 @@
+{
+  "timezone": "Asia/Shanghai",
+  "schedule": {
+    "daily_start": "10:00",
+    "daily_deadline": "14:00",
+    "weekly_weekday": 4,
+    "weekly_start": "17:30",
+    "weekly_deadline": "21:00"
+  },
+  "targets": {
+    "daily_total": 25,
+    "daily_min_publish": 8,
+    "cn_min": 6,
+    "cn_max": 10,
+    "drama_picks": 3
+  },
+  "caps": {
+    "per_source": {
+      "default": 6,
+      "reddit_popculture": 4,
+      "reddit_askreddit": 3,
+      "wikipedia_top_en": 5,
+      "google_trends_us": 4,
+      "mastodon_links": 4,
+      "bilibili_ranking": 5,
+      "bilibili_rsshub": 5,
+      "weibo_hot": 4,
+      "weibo_rsshub": 4
+    },
+    "max_news_total": 6,
+    "max_sports": 1,
+    "max_per_theme": 4
+  },
+  "freshness": {"news_hours": 36, "manual_days": 3, "chart_page_days": 3},
+  "dedupe": {"title_similarity": 0.55, "repeat_window_days": 3, "repeat_score_gain": 0.4},
+  "llm": {"batch_size": 25},
+  "free_translate": {"enabled": true, "daily_cap": 60},
+  "telegram": {"message_limit": 3800, "send_interval_seconds": 1.2},
+  "screen": {"enabled": true, "top_n": 5},
+  "adult": {"enabled": true, "max_items": 5},
+  "drama": {"post_to_main_channel": false},
+  "admin": {"daily_summary": true}
+}
