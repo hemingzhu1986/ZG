@@ -104,18 +104,20 @@ def drop_recent_repeats(items: list[Item], recent: list[dict], window_days: int,
 
 
 # ───────────────────────── 打分 ─────────────────────────
+def _parse_dt(s: str):
+    """把各来源的时间字符串统一成带时区（UTC）的 datetime；纯日期也能处理；失败返回 None。"""
+    try:
+        d = dt.datetime.fromisoformat(s)
+    except (ValueError, TypeError):
+        return None
+    return d if d.tzinfo else d.replace(tzinfo=dt.timezone.utc)
+
+
 def score(items: list[Item], cfg_by_id: dict, now: dt.datetime) -> None:
     for it in items:
         h = heat(it)
-        if it.published:
-            try:
-                pub = dt.datetime.fromisoformat(it.published)
-                age_h = max(0.0, (now - pub).total_seconds() / 3600)
-                recency = math.exp(-age_h / 36.0)
-            except ValueError:
-                recency = 0.7
-        else:
-            recency = 0.7
+        pub = _parse_dt(it.published) if it.published else None
+        recency = math.exp(-max(0.0, (now - pub).total_seconds() / 3600) / 36.0) if pub else 0.7
         corro = min(1.0, 0.5 * len(it.also_in))
         weight = cfg_by_id.get(it.source, {}).get("weight", 1.0)
         it.score = round((0.6 * h + 0.15 * recency + 0.25 * corro) * weight, 4)

@@ -19,12 +19,22 @@ from .publish import publish
 from .sources import Ctx
 from .collect import collect
 from .state import ARCHIVE, STATE, History, Ledger, read_json, write_json
-from .telegram import Telegram
+from .telegram import Telegram, TelegramError
 from .translate import Translator
 
 
 def _env() -> dict:
     return dict(os.environ)
+
+
+def _notify_admin(text: str) -> None:
+    """把具体错误私信给管理员；自身失败时静默，避免掩盖原始错误。"""
+    env = _env()
+    if env.get("TELEGRAM_BOT_TOKEN") and env.get("ADMIN_CHAT_ID"):
+        try:
+            Telegram(env["TELEGRAM_BOT_TOKEN"], 0).send(env["ADMIN_CHAT_ID"].strip(), text, silent=False, html_mode=False)
+        except Exception:
+            pass
 
 
 def cmd_doctor(a) -> int:
@@ -166,12 +176,33 @@ def cmd_alert(a) -> int:
 
 
 def cmd_send_test(a) -> int:
+    """逐个向 主频道/管理员/短剧群 发测试消息，并把 Telegram 拒绝的真实原因打印出来。"""
     env = _env()
-    tg = Telegram(env["TELEGRAM_BOT_TOKEN"])
-    chat = env.get(a.to.upper() + "_CHAT_ID") or env.get("TELEGRAM_CHAT_ID")
-    mid = tg.send(chat, "✅ 织光内容雷达 v2 连通性测试", silent=True, html_mode=False)
-    print("已发送，message_id =", mid)
-    return 0
+    if not env.get("TELEGRAM_BOT_TOKEN"):
+        print("❌ 没有设置 TELEGRAM_BOT_TOKEN")
+        return 2
+    tg = Telegram(env["TELEGRAM_BOT_TOKEN"], 0)
+    targets = {"main": env.get("TELEGRAM_CHAT_ID"), "admin": env.get("ADMIN_CHAT_ID"), "drama": env.get("DRAMA_CHAT_ID")}
+    names = list(targets) if a.to == "all" else [a.to]
+    bad, lines = 0, []
+    for n in names:
+        cid = (targets.get(n) or "").strip()
+        if not cid:
+            lines.append(f"⏭ {n}：未设置")
+            continue
+        try:
+            tg.send(cid, f"✅ 织光内容雷达连通性测试（{n}）", silent=True, html_mode=False)
+            lines.append(f"✅ {n}：发送成功")
+        except TelegramError as e:
+            bad += 1
+            lines.append(f"❌ {n}：{e}")
+    print("\n".join(lines))
+    if targets["admin"]:
+        try:
+            tg.send(targets["admin"].strip(), "连通性测试结果\n" + "\n".join(lines), silent=True, html_mode=False)
+        except TelegramError:
+            pass
+    return 1 if bad else 0
 
 
 def cmd_resolve(a) -> int:
@@ -190,14 +221,16 @@ def main(argv=None) -> int:
     r = sub.add_parser("run"); r.add_argument("--force", choices=["daily", "weekly"]); r.set_defaults(fn=cmd_run)
     sub.add_parser("watchdog").set_defaults(fn=cmd_watchdog)
     al = sub.add_parser("alert"); al.add_argument("--text", required=True); al.set_defaults(fn=cmd_alert)
-    st = sub.add_parser("send-test"); st.add_argument("--to", default="main", choices=["main", "admin", "drama"]); st.set_defaults(fn=cmd_send_test)
+    st = sub.add_parser("send-test"); st.add_argument("--to", default="all", choices=["all", "main", "admin", "drama"]); st.set_defaults(fn=cmd_send_test)
     rv = sub.add_parser("resolve"); rv.add_argument("--date", required=True); rv.add_argument("--key", required=True)
     rv.add_argument("--status", required=True, choices=["sent", "failed"]); rv.set_defaults(fn=cmd_resolve)
     a = ap.parse_args(argv)
     try:
         return a.fn(a)
     except Exception as e:
-        print(f"运行失败：{type(e).__name__}: {e}")
+        msg = f"{type(e).__name__}: {e}"[:300]
+        print(f"运行失败：{msg}")
+        _notify_admin(f"⚠️ 雷达运行失败（{a.cmd}）：{msg}")
         return 1
 
 

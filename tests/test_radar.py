@@ -454,6 +454,88 @@ class ExampleBuildTests(unittest.TestCase):
         self.assertNotIn("Variety", json.dumps(config.load_sources(), ensure_ascii=False))   # 已移除 Variety
 
 
+class RegressionTests(unittest.TestCase):
+    def test_score_handles_naive_and_garbage_timestamps(self):
+        """回归：维基条目的纯日期时间戳曾导致 TypeError，整条日报在发送前崩溃。"""
+        items = [mk("a", published="2026-11-04"), mk("b", published="2026-11-04T01:00:00"),
+                 mk("c", published="2026-11-04T01:00:00+00:00"), mk("d", published="not-a-date"), mk("e", published="")]
+        for it in items:
+            it.rank = 1
+        P.score(items, {}, NOW)                       # 不得抛异常
+        self.assertTrue(all(i.score > 0 for i in items))
+
+    def test_wikipedia_published_is_timezone_aware(self):
+        def fake(url, **kw):
+            if "/2026/11/04" in url:
+                return {"items": [{"articles": [{"article": "Patrick_Stewart", "views": 1_500_000, "rank": 2}]}]}
+            raise http.FetchError("HTTP 404", 404)
+        with mock.patch.object(http, "fetch_json", side_effect=fake):
+            it = apis.fetch_wikipedia_top({"id": "w", "name": "W", "limit": 5}, CTX)[0]
+        self.assertIsNotNone(dt.datetime.fromisoformat(it.published).tzinfo)
+
+    def test_every_source_type_survives_scoring(self):
+        """每种适配器产出的条目都必须能完成打分（用各自真实的数据形态）。"""
+        out = []
+        with mock.patch.object(http, "fetch", return_value=GTRENDS):
+            out += feeds.fetch_google_trends({"id": "g", "name": "G", "url": "u"}, CTX)
+        with mock.patch.object(http, "fetch", return_value=ATOM):
+            out += feeds.fetch_rss({"id": "r", "name": "R", "url": "u", "ranked": True}, CTX)
+        with mock.patch.object(http, "fetch_json", return_value={"data": {"realtime": [{"word": "话题", "num": 5}]}}):
+            out += apis.fetch_weibo({"id": "w", "name": "W", "url": "u"}, CTX)
+        with mock.patch.object(http, "fetch_json", return_value=[{"url": "https://a.com/1", "title": "t", "published_at": None,
+                                                                   "history": [{"accounts": "3"}]}]):
+            out += apis.fetch_mastodon({"id": "m", "name": "M", "instance": "https://m.example"}, CTX)
+        self.assertGreaterEqual(len(out), 5)
+        P.score(out, {}, NOW)
+
+    def test_publish_records_error_reason_and_report_shows_it(self):
+        from radar import health
+        ledger = state.Ledger(Path(tempfile.mkdtemp()) / "l.json")
+        tg = PublishTests.FakeTG([TelegramError('HTTP 400 {"description":"Bad Request: chat not found"}', definite=True, status=400)])
+        res = PUB.publish([{"key": "daily_intl#1", "chat_id": 1, "text": "x"}], ledger, tg, "d", log=lambda *_: None)
+        self.assertIn("chat not found", res["errors"]["daily_intl#1"])
+        rep = health.admin_report("d", [], {"selected": 1, "target": 25, "cn": 0, "cn_min": 6, "short_by": 24}, {}, {}, False, res, [])
+        self.assertIn("chat not found", rep)
+
+    def test_crash_is_reported_to_admin_with_reason(self):
+        sent = []
+        class TG:
+            def __init__(self, *a, **k): pass
+            def send(self, chat, text, silent=False, html_mode=True): sent.append((chat, text))
+        env = {"TELEGRAM_BOT_TOKEN": "t", "ADMIN_CHAT_ID": "99"}
+        with mock.patch.dict(os.environ, env), mock.patch.object(cli, "Telegram", TG), \
+                mock.patch.object(cli, "cmd_watchdog", side_effect=TypeError("boom")):
+            rc = cli.main(["watchdog"])
+        self.assertEqual(rc, 1)
+        self.assertEqual(sent[0][0], "99")
+        self.assertIn("TypeError: boom", sent[0][1])
+
+    def test_send_test_reports_real_reason(self):
+        class TG:
+            def __init__(self, *a, **k): pass
+            def send(self, chat, text, silent=False, html_mode=True):
+                if chat == "-100":
+                    raise TelegramError('HTTP 400 {"description":"Bad Request: chat not found"}', definite=True, status=400)
+        env = {"TELEGRAM_BOT_TOKEN": "t", "TELEGRAM_CHAT_ID": "-100", "ADMIN_CHAT_ID": "99"}
+        with mock.patch.dict(os.environ, env), mock.patch.object(cli, "Telegram", TG), mock.patch("builtins.print") as pr:
+            rc = cli.main(["send-test"])
+        self.assertEqual(rc, 1)
+        out = "\n".join(str(c.args[0]) for c in pr.call_args_list)
+        self.assertIn("❌ main", out)
+        self.assertIn("chat not found", out)
+        self.assertIn("✅ admin", out)
+
+
+class TranslatorTests(unittest.TestCase):
+    def test_circuit_breaker_stops_after_three_failures(self):
+        from radar.translate import Translator
+        tr = Translator(True, 60, Path(tempfile.mkdtemp()) / "t.json")
+        with mock.patch.object(http, "fetch", side_effect=http.FetchError("timeout")) as f:
+            for i in range(10):
+                self.assertIsNone(tr.translate(f"English title number {i}"))
+        self.assertEqual(f.call_count, 3)               # 第 4 条起不再请求
+
+
 class WeeklyTests(unittest.TestCase):
     def test_weekly_dedupes_across_days_and_lists_drama(self):
         from radar.pipeline import build_weekly, compact
@@ -505,6 +587,19 @@ class EndToEndTests(unittest.TestCase):
             return {"code": 0, "data": {"list": [{"title": f"视频{i}", "bvid": f"BV{i}", "pubdate": 1793757600, "desc": "",
                     "stat": {"view": 2_000_000 - i, "like": 1, "danmaku": 1}, "owner": {"name": "u"}, "tname": "生活"}
                     for i in range(8)]}}
+        if "pageviews/top" in url:                      # 维基：纯日期、无时区——上次崩溃的数据形态
+            if "/2026/11/04" in url or "/2026/11/" in url and "03" not in url.split("/")[-1]:
+                return {"items": [{"articles": [{"article": "Main_Page", "views": 9_000_000, "rank": 1},
+                                                {"article": "Patrick_Stewart", "views": 1_500_000, "rank": 2},
+                                                {"article": "Taylor_Swift", "views": 900_000, "rank": 3}]}]}
+            return {"items": [{"articles": [{"article": "Taylor_Swift", "views": 880_000, "rank": 3}]}]}
+        if "page/summary" in url:
+            return {"description": "英国演员", "extract": "Patrick Stewart is an English actor. He is known for TV."}
+        if "hotSearch" in url:
+            return {"data": {"realtime": [{"word": f"微博话题{i}", "num": 1_000_000 - i} for i in range(6)]}}
+        if "mastodon" in url:
+            return [{"url": "https://news.example/m1", "title": "Mastodon link", "description": "d", "provider_name": "P",
+                     "published_at": None, "history": [{"accounts": "30", "uses": "40"}, {"accounts": "20", "uses": "30"}]}]
         raise http.FetchError("HTTP 403", 403)
 
     def test_full_run(self):
@@ -530,7 +625,7 @@ class EndToEndTests(unittest.TestCase):
         finally:
             for p in reversed(patches):
                 p.stop()
-        self.assertEqual(rc1, 0)
+        self.assertEqual(rc1, 0, "整条链路不应崩溃")
         self.assertEqual(rc2, 0)
         chats = [c for c, _ in self.FakeTG.sent]
         self.assertIn("-100", chats)

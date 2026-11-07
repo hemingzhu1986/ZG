@@ -52,7 +52,7 @@ def fetch_wikipedia_top(cfg: dict, ctx) -> list[Item]:
         url = f"https://{project.split('.')[0]}.wikipedia.org/wiki/{quote(art)}"
         it = Item(id=item_id(url, title), title=title, url=url, source=cfg["id"], source_name=cfg["name"],
                   region="intl", kind="rank", rank=int(r.get("rank", 0)) or None, metrics={"views": views},
-                  heat_text=f"维基浏览{fmt_num(views)}（{day.month}/{day.day}）", published=day.isoformat())
+                  heat_text=f"维基浏览{fmt_num(views)}（{day.month}/{day.day}）", published=dt.datetime.combine(day, dt.time(), tzinfo=dt.timezone.utc).isoformat())
         if p:
             it.metrics["views_prev"] = p
             it.heat_text += f"，较前日×{views / p:.1f}"

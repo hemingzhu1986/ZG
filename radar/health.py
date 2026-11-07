@@ -31,6 +31,8 @@ def admin_report(date: str, results, gaps: dict, drops: dict, enrich_stats: dict
     if publish_res:
         lines.append(f"发送：成功{len(publish_res['sent'])}｜已发过{len(publish_res['skipped'])}｜"
                      f"失败{len(publish_res['failed'])}｜待核实{len(publish_res['uncertain'])}")
+        for k, why in (publish_res.get("errors") or {}).items():
+            lines.append(f"❗ {esc(k)} 发送失败原因：{esc(why)}")
         if publish_res["uncertain"]:
             lines.append("❗ 待核实：" + "、".join(publish_res["uncertain"]) + "（请查频道后运行 resolve）")
     lines += notes
