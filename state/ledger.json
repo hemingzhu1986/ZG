@@ -1,0 +1,20 @@
+{
+  "2026-11-07": {
+    "_complete_daily": true,
+    "daily_cn#1": {
+      "message_id": 8,
+      "status": "sent",
+      "ts": "2026-11-07T09:04:02.752163+00:00"
+    },
+    "daily_intl#1": {
+      "message_id": 7,
+      "status": "sent",
+      "ts": "2026-11-07T09:04:02.103300+00:00"
+    },
+    "drama#1": {
+      "message_id": 20,
+      "status": "sent",
+      "ts": "2026-11-07T09:04:04.561980+00:00"
+    }
+  }
+}

@@ -1,0 +1,127 @@
+{
+  "drops": {
+    "露骨内容": 1
+  },
+  "enrich": {
+    "llm": 0,
+    "raw": 0,
+    "translated": 16
+  },
+  "gaps": {
+    "cn": 9,
+    "cn_min": 6,
+    "selected": 25,
+    "short_by": 0,
+    "target": 25
+  },
+  "sources": [
+    {
+      "count": 10,
+      "error": "",
+      "id": "google_trends_us",
+      "status": "ok"
+    },
+    {
+      "count": 15,
+      "error": "",
+      "id": "wikipedia_top_en",
+      "status": "ok"
+    },
+    {
+      "count": 10,
+      "error": "",
+      "id": "mastodon_links",
+      "status": "ok"
+    },
+    {
+      "count": 3,
+      "error": "",
+      "id": "kym_news",
+      "status": "ok"
+    },
+    {
+      "count": 8,
+      "error": "",
+      "id": "dexerto_rss",
+      "status": "ok"
+    },
+    {
+      "count": 8,
+      "error": "",
+      "id": "thr_rss",
+      "status": "ok"
+    },
+    {
+      "count": 8,
+      "error": "",
+      "id": "deadline_rss",
+      "status": "ok"
+    },
+    {
+      "count": 8,
+      "error": "",
+      "id": "rollingstone_rss",
+      "status": "ok"
+    },
+    {
+      "count": 2,
+      "error": "",
+      "id": "npr_rss",
+      "status": "ok"
+    },
+    {
+      "count": 12,
+      "error": "",
+      "id": "bilibili_ranking",
+      "status": "ok"
+    },
+    {
+      "count": 15,
+      "error": "",
+      "id": "weibo_hot",
+      "status": "ok"
+    },
+    {
+      "count": 0,
+      "error": "HTTP 403",
+      "id": "zhihu_rsshub",
+      "status": "error"
+    },
+    {
+      "count": 0,
+      "error": "最新榜单日期 2026-10-31，已超过 3 天",
+      "id": "duanju_charts",
+      "status": "stale"
+    },
+    {
+      "count": 0,
+      "error": "未设置 TMDB_API_KEY",
+      "id": "tmdb_movies",
+      "status": "skipped"
+    },
+    {
+      "count": 0,
+      "error": "未设置 TMDB_API_KEY",
+      "id": "tmdb_tv",
+      "status": "skipped"
+    },
+    {
+      "count": 0,
+      "error": "",
+      "id": "adult_news",
+      "status": "empty"
+    },
+    {
+      "count": 0,
+      "error": "主源正常，未启用备用源",
+      "id": "bilibili_rsshub",
+      "status": "skipped"
+    },
+    {
+      "count": 0,
+      "error": "主源正常，未启用备用源",
+      "id": "weibo_rsshub",
+      "status": "skipped"
+    }
+  ]
+}

@@ -1,0 +1,593 @@
+{
+  "date": "2026-11-07",
+  "drama": [
+    {
+      "basis_ids": [
+        "868d5af6c58f"
+      ],
+      "conflict": "真相 vs 体面",
+      "emotion": "（需人工判断）",
+      "genre": "家庭悬疑／身份反转",
+      "mode": "material",
+      "themes": [
+        "身份·反转",
+        "AI·科技"
+      ],
+      "working_title": "素材：特朗普官员希望在公共土地上建立数据中心…"
+    },
+    {
+      "basis_ids": [
+        "a00bbf01e81a"
+      ],
+      "conflict": "改写过去 vs 守住现在",
+      "emotion": "（需人工判断）",
+      "genre": "重生情感",
+      "mode": "material",
+      "themes": [
+        "怀旧·重来"
+      ],
+      "working_title": "素材：《再飞行！》MV：终于完整的旋律，是我…"
+    },
+    {
+      "basis_ids": [
+        "089fd8d0006b"
+      ],
+      "conflict": "亲情 vs 边界",
+      "emotion": "（需人工判断）",
+      "genre": "家庭伦理／治愈",
+      "mode": "material",
+      "themes": [
+        "家庭·代际"
+      ],
+      "working_title": "素材：只有站对角度，才能看见消失的孩子！"
+    }
+  ],
+  "items": [
+    {
+      "also_in": [],
+      "drama_signal": "",
+      "flags": [],
+      "heat_text": "微博热搜第1·热度107万",
+      "id": "9f8e518c6e2b",
+      "kind": "trend",
+      "published": "",
+      "rank": 1,
+      "region": "cn",
+      "score": 0.705,
+      "section": "daily",
+      "source": "weibo_hot",
+      "source_name": "微博·热搜",
+      "summary_zh": "",
+      "tags": [
+        "社会热点"
+      ],
+      "title": "曝青稚被蛐蛐的原因",
+      "title_zh": "曝青稚被蛐蛐的原因",
+      "url": "https://s.weibo.com/weibo?q=%23%E6%9B%9D%E9%9D%92%E7%A8%9A%E8%A2%AB%E8%9B%90%E8%9B%90%E7%9A%84%E5%8E%9F%E5%9B%A0%23"
+    },
+    {
+      "also_in": [],
+      "drama_signal": "",
+      "flags": [],
+      "heat_text": "微博热搜第2·热度80.1万",
+      "id": "0ae299d75179",
+      "kind": "trend",
+      "published": "",
+      "rank": 2,
+      "region": "cn",
+      "score": 0.6407,
+      "section": "daily",
+      "source": "weibo_hot",
+      "source_name": "微博·热搜",
+      "summary_zh": "新",
+      "tags": [
+        "明星八卦"
+      ],
+      "title": "女子和已婚男交往被原配发现后坠亡",
+      "title_zh": "女子和已婚男交往被原配发现后坠亡",
+      "url": "https://s.weibo.com/weibo?q=%23%E5%A5%B3%E5%AD%90%E5%92%8C%E5%B7%B2%E5%A9%9A%E7%94%B7%E4%BA%A4%E5%BE%80%E8%A2%AB%E5%8E%9F%E9%85%8D%E5%8F%91%E7%8E%B0%E5%90%8E%E5%9D%A0%E4%BA%A1%23"
+    },
+    {
+      "also_in": [],
+      "drama_signal": "",
+      "flags": [],
+      "heat_text": "B站全站榜第1·1335.6万播放（累计）",
+      "id": "7d5437553e2f",
+      "kind": "rank",
+      "published": "2026-11-03T02:00:00+00:00",
+      "rank": 1,
+      "region": "cn",
+      "score": 0.6086,
+      "section": "daily",
+      "source": "bilibili_ranking",
+      "source_name": "哔哩哔哩·全站榜",
+      "summary_zh": "分区：乐评盘点 木偶制作：我自己",
+      "tags": [
+        "关系讨论"
+      ],
+      "title": "【只对你有感觉】|“【恋爱の小曲】”",
+      "title_zh": "【只对你有感觉】|“【恋爱の小曲】”",
+      "url": "https://www.bilibili.com/video/BV1w5xh6sEEz"
+    },
+    {
+      "also_in": [],
+      "drama_signal": "",
+      "flags": [],
+      "heat_text": "B站全站榜第2·123.5万播放（累计）",
+      "id": "e72e26ddf944",
+      "kind": "rank",
+      "published": "2026-11-06T04:00:00+00:00",
+      "rank": 2,
+      "region": "cn",
+      "score": 0.6026,
+      "section": "daily",
+      "source": "bilibili_ranking",
+      "source_name": "哔哩哔哩·全站榜",
+      "summary_zh": "分区：手机游戏 「齐乐绒绒大冒险」是《崩坏：星穹铁道》发起的一项公益行动。",
+      "tags": [
+        "游戏动漫"
+      ],
+      "title": "《崩坏：星穹铁道》公益第三卷：「抵达彩色的彼方」",
+      "title_zh": "《崩坏：星穹铁道》公益第三卷：「抵达彩色的彼方」",
+      "url": "https://www.bilibili.com/video/BV1Ly4i6AE5b"
+    },
+    {
+      "also_in": [],
+      "drama_signal": "",
+      "flags": [],
+      "heat_text": "微博热搜第3·热度74.9万",
+      "id": "600205d61186",
+      "kind": "trend",
+      "published": "",
+      "rank": 3,
+      "region": "cn",
+      "score": 0.5889,
+      "section": "daily",
+      "source": "weibo_hot",
+      "source_name": "微博·热搜",
+      "summary_zh": "",
+      "tags": [
+        "社会热点"
+      ],
+      "title": "6图看进博会磁吸力持续增强",
+      "title_zh": "6图看进博会磁吸力持续增强",
+      "url": "https://s.weibo.com/weibo?q=%236%E5%9B%BE%E7%9C%8B%E8%BF%9B%E5%8D%9A%E4%BC%9A%E7%A3%81%E5%90%B8%E5%8A%9B%E6%8C%81%E7%BB%AD%E5%A2%9E%E5%BC%BA%23"
+    },
+    {
+      "also_in": [],
+      "drama_signal": "",
+      "flags": [],
+      "heat_text": "微博热搜第5·热度74.8万",
+      "id": "fa4a648db800",
+      "kind": "trend",
+      "published": "",
+      "rank": 5,
+      "region": "cn",
+      "score": 0.5581,
+      "section": "daily",
+      "source": "weibo_hot",
+      "source_name": "微博·热搜",
+      "summary_zh": "热",
+      "tags": [
+        "社会热点"
+      ],
+      "title": "因为画地为牢被辞退了",
+      "title_zh": "因为画地为牢被辞退了",
+      "url": "https://s.weibo.com/weibo?q=%23%E5%9B%A0%E4%B8%BA%E7%94%BB%E5%9C%B0%E4%B8%BA%E7%89%A2%E8%A2%AB%E8%BE%9E%E9%80%80%E4%BA%86%23"
+    },
+    {
+      "also_in": [],
+      "drama_signal": "",
+      "flags": [],
+      "heat_text": "B站全站榜第3·474.3万播放（累计）",
+      "id": "b77b46a6fa9a",
+      "kind": "rank",
+      "published": "2026-11-05T04:00:00+00:00",
+      "rank": 3,
+      "region": "cn",
+      "score": 0.5494,
+      "section": "daily",
+      "source": "bilibili_ranking",
+      "source_name": "哔哩哔哩·全站榜",
+      "summary_zh": "分区：手机游戏 本片由弗莱明共同体独家呈现，特别鸣谢路易斯·弗莱明·Y女士的鼎力支持。",
+      "tags": [
+        "游戏动漫"
+      ],
+      "title": "《崩坏：因缘精灵》幸福PV：缘汽一下",
+      "title_zh": "《崩坏：因缘精灵》幸福PV：缘汽一下",
+      "url": "https://www.bilibili.com/video/BV1nm4g6NE71"
+    },
+    {
+      "also_in": [],
+      "drama_signal": "",
+      "flags": [],
+      "heat_text": "B站全站榜第10·114.9万播放（累计）",
+      "id": "a00bbf01e81a",
+      "kind": "rank",
+      "published": "2026-11-06T11:00:00+00:00",
+      "rank": 10,
+      "region": "cn",
+      "score": 0.5488,
+      "section": "daily",
+      "source": "bilibili_ranking",
+      "source_name": "哔哩哔哩·全站榜",
+      "summary_zh": "分区：综合 新版《再飞行！",
+      "tags": [],
+      "title": "《再飞行！》MV：终于完整的旋律，是我们继续出发的BGM！",
+      "title_zh": "《再飞行！》MV：终于完整的旋律，是我们继续出发的BGM！",
+      "url": "https://www.bilibili.com/video/BV1UB4v67Exr"
+    },
+    {
+      "also_in": [],
+      "drama_signal": "",
+      "flags": [],
+      "heat_text": "Mastodon近2日239人分享",
+      "id": "868d5af6c58f",
+      "kind": "trend",
+      "published": "2026-11-06T11:00:00+00:00",
+      "rank": 1,
+      "region": "intl",
+      "score": 0.545,
+      "section": "daily",
+      "source": "mastodon_links",
+      "source_name": "Mastodon·热门链接",
+      "summary_zh": "在人工智能行业投入巨资的内政部长道格·布尔古姆 (Doug Burgum) 正在带头让科技公司……",
+      "tags": [
+        "AI科技"
+      ],
+      "title": "Trump Official Who Wants Data Centers on Public Lands Has Tens of Millions Invested in AI Industry",
+      "title_zh": "特朗普官员希望在公共土地上建立数据中心，已向人工智能行业投资数千万美元",
+      "url": "https://www.propublica.org/article/burgum-public-land-data-centers-investments"
+    },
+    {
+      "also_in": [],
+      "drama_signal": "",
+      "flags": [],
+      "heat_text": "B站全站榜第5·606.2万播放（累计）",
+      "id": "089fd8d0006b",
+      "kind": "rank",
+      "published": "2026-11-04T00:30:00+00:00",
+      "rank": 5,
+      "region": "cn",
+      "score": 0.5392,
+      "section": "daily",
+      "source": "bilibili_ranking",
+      "source_name": "哔哩哔哩·全站榜",
+      "summary_zh": "分区：人文历史 沼田侑香（Yuka Numata）在下吕废弃的汤屋小学，创作的作品《残像重播》，在现实空间模拟出数字残影，把逝去时光变成空间中若隐若现的存在。",
+      "tags": [],
+      "title": "只有站对角度，才能看见消失的孩子！",
+      "title_zh": "只有站对角度，才能看见消失的孩子！",
+      "url": "https://www.bilibili.com/video/BV1B54G6vEfm"
+    },
+    {
+      "also_in": [],
+      "drama_signal": "",
+      "flags": [],
+      "heat_text": "维基浏览78.5万（11/6），较前日×1.3",
+      "id": "3b4e6bfcaa03",
+      "kind": "rank",
+      "published": "2026-11-06T00:00:00+00:00",
+      "rank": 2,
+      "region": "intl",
+      "score": 0.536,
+      "section": "daily",
+      "source": "wikipedia_top_en",
+      "source_name": "维基百科英文版·日浏览榜",
+      "summary_zh": "2026 年印度电影，尼泰什·蒂瓦里 (Nitesh Tiwari) 执导。",
+      "tags": [
+        "影视综艺"
+      ],
+      "title": "Ramayana: Part 1",
+      "title_zh": "罗摩衍那：第 1 部分",
+      "url": "https://en.wikipedia.org/wiki/Ramayana%3A_Part_1"
+    },
+    {
+      "also_in": [],
+      "drama_signal": "",
+      "flags": [],
+      "heat_text": "Mastodon近2日175人分享",
+      "id": "05135575d857",
+      "kind": "trend",
+      "published": "2026-11-06T09:49:56+00:00",
+      "rank": 2,
+      "region": "intl",
+      "score": 0.4915,
+      "section": "daily",
+      "source": "mastodon_links",
+      "source_name": "Mastodon·热门链接",
+      "summary_zh": "华尔街溃败后亚太市场下滑，滚动报道最新经济和金融新闻",
+      "tags": [
+        "AI科技"
+      ],
+      "title": "Global stocks tumble as AI panic grips markets after Democrats’ midterm success – business live",
+      "title_zh": "民主党中期选举成功后，人工智能恐慌席卷市场，全球股市暴跌 – Business Live",
+      "url": "https://www.theguardian.com/business/live/2026/nov/06/global-stocks-tumble-ai-panic-markets-democrats-midterms-success-jobs-oil-dollar-latest-news-updates"
+    },
+    {
+      "also_in": [],
+      "drama_signal": "",
+      "flags": [],
+      "heat_text": "Mastodon近2日219人分享",
+      "id": "daf37616ce1b",
+      "kind": "trend",
+      "published": "",
+      "rank": 3,
+      "region": "intl",
+      "score": 0.4711,
+      "section": "daily",
+      "source": "mastodon_links",
+      "source_name": "Mastodon·热门链接",
+      "summary_zh": "100 多名活动人士闯入阿姆斯特丹的微软数据中心建筑工地。",
+      "tags": [
+        "社会热点",
+        "AI科技"
+      ],
+      "title": "Protesters break into Microsoft AI data centre site in Amsterdam",
+      "title_zh": "抗议者闯入位于阿姆斯特丹的微软人工智能数据中心站点",
+      "url": "https://www.aljazeera.com/video/newsfeed/2026/11/6/protesters-break-into-microsoft-ai-data-centre-site-in-amsterdam"
+    },
+    {
+      "also_in": [],
+      "drama_signal": "",
+      "flags": [],
+      "heat_text": "谷歌搜索量5000+（24小时）",
+      "id": "dfaf47b97db8",
+      "kind": "trend",
+      "published": "2026-11-07T00:50:00-08:00",
+      "rank": null,
+      "region": "intl",
+      "score": 0.4344,
+      "section": "daily",
+      "source": "google_trends_us",
+      "source_name": "谷歌趋势·美国",
+      "summary_zh": "交互式地图显示洛杉矶人在《L.》中投票支持 Nithya Raman 而非 Karen Bass。",
+      "tags": [
+        "社会热点"
+      ],
+      "title": "la",
+      "title_zh": "这",
+      "url": "https://abc7.com/story/where-nithya-raman-won-votes-karen-bass-interactive-map-breaks-down-la-mayoral-vote/20020903/"
+    },
+    {
+      "also_in": [],
+      "drama_signal": "",
+      "flags": [],
+      "heat_text": "维基浏览22万（11/6），较前日×20.9",
+      "id": "310a1055b530",
+      "kind": "rank",
+      "published": "2026-11-06T00:00:00+00:00",
+      "rank": 7,
+      "region": "intl",
+      "score": 0.4248,
+      "section": "daily",
+      "source": "wikipedia_top_en",
+      "source_name": "维基百科英文版·日浏览榜",
+      "summary_zh": "美国政治顾问（1985年出生）。",
+      "tags": [],
+      "title": "Stephen Miller",
+      "title_zh": "斯蒂芬·米勒",
+      "url": "https://en.wikipedia.org/wiki/Stephen_Miller"
+    },
+    {
+      "also_in": [],
+      "drama_signal": "",
+      "flags": [],
+      "heat_text": "维基浏览16万（11/6），较前日×6.2",
+      "id": "16657f16961d",
+      "kind": "rank",
+      "published": "2026-11-06T00:00:00+00:00",
+      "rank": 14,
+      "region": "intl",
+      "score": 0.4152,
+      "section": "daily",
+      "source": "wikipedia_top_en",
+      "source_name": "维基百科英文版·日浏览榜",
+      "summary_zh": "2026 年吉图·马达万 (Jithu Madhavan) 执导的印度电影。",
+      "tags": [
+        "影视综艺"
+      ],
+      "title": "Scene (2026 film)",
+      "title_zh": "场景（2026 年电影）",
+      "url": "https://en.wikipedia.org/wiki/Scene_%282026_film%29"
+    },
+    {
+      "also_in": [],
+      "drama_signal": "",
+      "flags": [],
+      "heat_text": "维基浏览12.3万（11/6），较前日×1.6",
+      "id": "c386b520a953",
+      "kind": "rank",
+      "published": "2026-11-06T00:00:00+00:00",
+      "rank": 18,
+      "region": "intl",
+      "score": 0.4072,
+      "section": "daily",
+      "source": "wikipedia_top_en",
+      "source_name": "维基百科英文版·日浏览榜",
+      "summary_zh": "2026年山崎贵的日本电影。",
+      "tags": [
+        "影视综艺"
+      ],
+      "title": "Godzilla Minus Zero",
+      "title_zh": "哥斯拉负零",
+      "url": "https://en.wikipedia.org/wiki/Godzilla_Minus_Zero"
+    },
+    {
+      "also_in": [],
+      "drama_signal": "",
+      "flags": [],
+      "heat_text": "Mastodon近2日99人分享",
+      "id": "fca390d0380e",
+      "kind": "trend",
+      "published": "2026-11-06T00:18:47+00:00",
+      "rank": 4,
+      "region": "intl",
+      "score": 0.4013,
+      "section": "daily",
+      "source": "mastodon_links",
+      "source_name": "Mastodon·热门链接",
+      "summary_zh": "开源你的抄袭仍然=抄袭",
+      "tags": [
+        "社会热点"
+      ],
+      "title": "When Did Open-Source Become a Twitter Grift?",
+      "title_zh": "开源何时成为 Twitter 的骗局？",
+      "url": "https://www.joanwestenberg.com/p/when-did-open-source-become-a-twitter"
+    },
+    {
+      "also_in": [],
+      "drama_signal": "",
+      "flags": [],
+      "heat_text": "维基浏览9.5万（11/6），较前日×10.0",
+      "id": "d86cc5e35f78",
+      "kind": "rank",
+      "published": "2026-11-06T00:00:00+00:00",
+      "rank": 23,
+      "region": "intl",
+      "score": 0.3994,
+      "section": "daily",
+      "source": "wikipedia_top_en",
+      "source_name": "维基百科英文版·日浏览榜",
+      "summary_zh": "美国说客和政治顾问（1957年出生）。",
+      "tags": [],
+      "title": "Susie Wiles",
+      "title_zh": "苏西·威尔斯",
+      "url": "https://en.wikipedia.org/wiki/Susie_Wiles"
+    },
+    {
+      "also_in": [],
+      "drama_signal": "",
+      "flags": [],
+      "heat_text": "谷歌搜索量1000+（24小时）",
+      "id": "cea0da811031",
+      "kind": "trend",
+      "published": "2026-11-07T00:40:00-08:00",
+      "rank": null,
+      "region": "intl",
+      "score": 0.3798,
+      "section": "daily",
+      "source": "google_trends_us",
+      "source_name": "谷歌趋势·美国",
+      "summary_zh": "通过 Spectrum Internet Gig / Grand Theft Auto VI 预下载，更快下载 Grand Theft Auto VI，更快到达 Leonida.…",
+      "tags": [
+        "社会热点"
+      ],
+      "title": "gta release date",
+      "title_zh": "侠盗猎车手 发布日期",
+      "url": "https://corporate.charter.com/newsroom/spectrum-giving-free-gig-speed-lift-thanksgiving-grand-theft-auto"
+    },
+    {
+      "also_in": [],
+      "drama_signal": "",
+      "flags": [],
+      "heat_text": "谷歌搜索量500+（24小时）",
+      "id": "553a48133f7d",
+      "kind": "trend",
+      "published": "2026-11-07T00:20:00-08:00",
+      "rank": null,
+      "region": "intl",
+      "score": 0.3553,
+      "section": "daily",
+      "source": "google_trends_us",
+      "source_name": "谷歌趋势·美国",
+      "summary_zh": "舒布拉泽 (Shubladze) 在香港首次与排名前 20 的对手交锋时击败了 Cirstea / 世界排名第 15 的球员立即从网坛退役……",
+      "tags": [
+        "社会热点"
+      ],
+      "title": "hong kong open",
+      "title_zh": "香港公开赛",
+      "url": "https://www.wtatennis.com/videos/4605528/shubladze-stuns-cirstea-in-hong-kong-in-first-meeting-with-top-20-opponent"
+    },
+    {
+      "also_in": [],
+      "drama_signal": "",
+      "flags": [],
+      "heat_text": "谷歌搜索量200+（24小时）",
+      "id": "23d58794e898",
+      "kind": "trend",
+      "published": "2026-11-07T00:10:00-08:00",
+      "rank": null,
+      "region": "intl",
+      "score": 0.324,
+      "section": "daily",
+      "source": "google_trends_us",
+      "source_name": "谷歌趋势·美国",
+      "summary_zh": "爱荷华州 Stormboar 宣布四名新球员，包括 HLTV Prospect H0NeST / Astralis 注册 Anlelele 作为替补......",
+      "tags": [
+        "社会热点"
+      ],
+      "title": "hltv",
+      "title_zh": "湖南卫视",
+      "url": "https://www.dust2.us/news/79713/iowa-stormboar-announce-four-new-players-including-hltv-prospect-h0nest"
+    },
+    {
+      "also_in": [
+        "Deadline"
+      ],
+      "drama_signal": "",
+      "flags": [],
+      "heat_text": "",
+      "id": "b91a8e0c609b",
+      "kind": "news",
+      "published": "2026-11-07T02:09:01+00:00",
+      "rank": null,
+      "region": "intl",
+      "score": 0.3216,
+      "section": "daily",
+      "source": "thr_rss",
+      "source_name": "好莱坞报道者 THR",
+      "summary_zh": "经过数周的猜测，谁能参加神秘的詹姆斯·邦德试镜，Deadline 不仅找出了谁……",
+      "tags": [],
+      "title": "James Bond Surprise: Robert Pattinson Screen Tested to Play 007",
+      "title_zh": "詹姆斯·邦德惊喜：罗伯特·帕丁森银幕测试饰演 007",
+      "url": "https://www.hollywoodreporter.com/movies/movie-news/robert-pattinson-tested-to-play-james-bond-1236749903/"
+    },
+    {
+      "also_in": [
+        "Deadline"
+      ],
+      "drama_signal": "",
+      "flags": [],
+      "heat_text": "",
+      "id": "79749d713e3a",
+      "kind": "news",
+      "published": "2026-11-07T02:04:19+00:00",
+      "rank": null,
+      "region": "intl",
+      "score": 0.3214,
+      "section": "daily",
+      "source": "thr_rss",
+      "source_name": "好莱坞报道者 THR",
+      "summary_zh": "马修·赖特 (Matthew Wright) 上周五去世，享年 52 岁，死因已确定。",
+      "tags": [
+        "关系讨论"
+      ],
+      "title": "‘Ellen DeGeneres Show’ Producer Matthew Wright’s Cause of Death Revealed",
+      "title_zh": "《艾伦秀》制片人马修赖特的死因揭晓",
+      "url": "https://www.hollywoodreporter.com/tv/tv-news/ellen-degeneres-show-producer-matthew-wright-cause-of-death-1236749895/"
+    },
+    {
+      "also_in": [
+        "Deadline"
+      ],
+      "drama_signal": "",
+      "flags": [],
+      "heat_text": "",
+      "id": "79e531627faa",
+      "kind": "news",
+      "published": "2026-11-07T01:23:33+00:00",
+      "rank": null,
+      "region": "intl",
+      "score": 0.3197,
+      "section": "daily",
+      "source": "thr_rss",
+      "source_name": "好莱坞报道者 THR",
+      "summary_zh": "韩剧《再婚皇后》已成为全球 Disney+ 上有史以来观看次数最多的本土原创首播，……",
+      "tags": [],
+      "title": "‘The Remarried Empress’ Sets Disney+ and Hulu Record With Biggest Local Original Launch Ever",
+      "title_zh": "《再婚皇后》创下迪士尼+和Hulu有史以来最大规模的本地原创发布记录",
+      "url": "https://www.hollywoodreporter.com/tv/tv-news/the-remarried-empress-disney-hulu-biggest-local-original-launch-1236749905/"
+    }
+  ],
+  "kind": "daily"
+}
