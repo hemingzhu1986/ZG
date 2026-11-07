@@ -17,9 +17,9 @@ on:
   workflow_dispatch:
     inputs:
       force:
-        description: "daily/weekly=忽略时间窗强制运行（测试频道时用）；doctor=只检查所有数据源状态，不发送"
+        description: "daily/weekly=忽略时间窗强制运行（测试频道时用）；doctor=只检查所有数据源状态，不发送；test=向主频道/管理员/短剧群各发一条测试消息并报告原因"
         type: choice
-        options: ["", "daily", "weekly", "doctor"]
+        options: ["", "daily", "weekly", "doctor", "test"]
         default: ""
 
 concurrency:
@@ -54,6 +54,8 @@ jobs:
         run: |
           if [ "${{ github.event.inputs.force }}" = "doctor" ]; then
             python -m radar doctor
+          elif [ "${{ github.event.inputs.force }}" = "test" ]; then
+            python -m radar send-test
           elif [ -n "${{ github.event.inputs.force }}" ]; then
             python -m radar run --force "${{ github.event.inputs.force }}"
           else
