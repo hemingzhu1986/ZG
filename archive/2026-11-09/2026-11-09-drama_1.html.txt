@@ -1,0 +1,24 @@
+<b>🎬 织光内容雷达｜AI短剧选题 · 今日 3 则</b>
+2026-11-09 周一
+<i>基于今日入选热点；只借情绪与叙事结构，不借具体事件、真人私事或现有作品。</i>
+
+<b>素材候选 1｜《崩坏：星穹铁道》星神★阿哈角色PV—…</b>
+<b>数据依据</b>
+• <a href="https://www.bilibili.com/video/BV1tS4n6CEoJ">《崩坏：星穹铁道》星神★阿哈角色PV——「让骰子飞」</a>（B站全站榜第1·378.6万播放（累计））
+主题：职场·阶层｜情绪：（需人工判断）
+冲突类型：尊严 vs 生存｜可参考类型：职场逆袭／反爽文喜剧
+<i>（未配置大模型，仅输出素材候选，不含完整选题。）</i>
+
+<b>素材候选 2｜Viral retro gaming…</b>
+<b>数据依据</b>
+• <a href="https://www.dexerto.com/entertainment/viral-retro-gaming-creator-jacob-payne-dies-as-family-warns-fans-of-impersonators-3425848/">Viral retro gaming creator Jacob Payne dies as family warns fans of impersonators</a>
+主题：家庭·代际、逆袭·成名、友情·圈层｜情绪：（需人工判断）
+冲突类型：亲情 vs 边界｜可参考类型：家庭伦理／治愈
+<i>（未配置大模型，仅输出素材候选，不含完整选题。）</i>
+
+<b>素材候选 3｜Faker告别S16</b>
+<b>数据依据</b>
+• <a href="https://s.weibo.com/weibo?q=%23Faker%E5%91%8A%E5%88%ABS16%23">Faker告别S16</a>（微博热搜第5·热度86.2万）
+主题：身份·反转｜情绪：（需人工判断）
+冲突类型：真相 vs 体面｜可参考类型：家庭悬疑／身份反转
+<i>（未配置大模型，仅输出素材候选，不含完整选题。）</i>

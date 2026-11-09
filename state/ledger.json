@@ -16,5 +16,38 @@
       "status": "sent",
       "ts": "2026-11-07T09:04:04.561980+00:00"
     }
+  },
+  "2026-11-09": {
+    "_complete_daily": true,
+    "charts#1": {
+      "message_id": 12,
+      "status": "sent",
+      "ts": "2026-11-09T02:48:11.105021+00:00"
+    },
+    "charts#2": {
+      "message_id": 13,
+      "status": "sent",
+      "ts": "2026-11-09T02:48:13.039011+00:00"
+    },
+    "daily_cn#1": {
+      "message_id": 11,
+      "status": "sent",
+      "ts": "2026-11-09T02:48:09.225108+00:00"
+    },
+    "daily_intl#1": {
+      "message_id": 9,
+      "status": "sent",
+      "ts": "2026-11-09T02:48:06.596275+00:00"
+    },
+    "daily_intl#2": {
+      "message_id": 10,
+      "status": "sent",
+      "ts": "2026-11-09T02:48:07.395956+00:00"
+    },
+    "drama#1": {
+      "message_id": 27,
+      "status": "sent",
+      "ts": "2026-11-09T02:48:14.954402+00:00"
+    }
   }
 }
