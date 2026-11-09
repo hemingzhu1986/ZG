@@ -1,16 +1,16 @@
 name: radar
 
 # GitHub 的定时任务是“尽力而为”，可能延迟甚至漏触发，所以：
-#  1) 日报窗口（北京 10:00–14:00）内安排了 4 次补跑，账本保证只发一次；
-#  2) 14:05（北京）有一次 watchdog，日报没发完会私信管理员；
+#  1) 日报窗口（北京 11:00–15:00）内安排了 4 次补跑，账本保证只发一次；
+#  2) 15:05（北京）有一次 watchdog，日报没发完会私信管理员；
 #  3) 强烈建议再配一个外部定时器（如 cron-job.org）调用 workflow_dispatch，见 README。
 on:
   schedule:
-    - cron: "7 2 * * *"      # 北京 10:07
-    - cron: "37 2 * * *"     # 北京 10:37（补跑）
-    - cron: "17 3 * * *"     # 北京 11:17（补跑）
-    - cron: "47 4 * * *"     # 北京 12:47（补跑）
-    - cron: "5 6 * * *"      # 北京 14:05（watchdog）
+    - cron: "7 3 * * *"      # 北京 11:07
+    - cron: "37 3 * * *"     # 北京 11:37（补跑）
+    - cron: "17 4 * * *"     # 北京 12:17（补跑）
+    - cron: "47 5 * * *"     # 北京 13:47（补跑）
+    - cron: "5 7 * * *"      # 北京 15:05（watchdog）
     - cron: "37 9 * * 5"     # 周五北京 17:37（周回顾）
     - cron: "17 10 * * 5"    # 周五北京 18:17（补跑）
     - cron: "47 11 * * 5"    # 周五北京 19:47（补跑）
@@ -45,6 +45,8 @@ jobs:
       LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
       TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
       RSSHUB_BASE: ${{ secrets.RSSHUB_BASE }}
+      CRAWLORA_API_KEY: ${{ secrets.CRAWLORA_API_KEY }}
+      APIFY_TOKEN: ${{ secrets.APIFY_TOKEN }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
