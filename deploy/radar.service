@@ -1,0 +1,16 @@
+# 不用 Docker 时：复制到 /etc/systemd/system/radar.service，然后
+#   sudo systemctl daemon-reload && sudo systemctl enable --now radar
+[Unit]
+Description=织光内容雷达 v2（常驻调度）
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+WorkingDirectory=/opt/radar
+EnvironmentFile=/opt/radar/.env
+ExecStart=/usr/bin/python3 -m radar serve
+Restart=always
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target

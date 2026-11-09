@@ -90,10 +90,29 @@
 3. Settings → Actions → General → Workflow permissions 选 **Read and write permissions**。
 4. Actions → radar → Run workflow：先 **test**（逐个测试频道并报告原因），再 **doctor**（检查所有来源），再 **daily**（强制发一次）。
 
-### 定时
-- 每天北京时间 **11:00 起**触发（GitHub 定时任务可能延迟，窗口内 11:07/11:37/12:17/13:47 有 4 次补跑，账本保证只发一次；窗口到 15:00）。
-- 15:05 有 watchdog：日报没发完会私信管理员。
-- **强烈建议再加外部定时器**（如 cron-job.org，每天 11:05 调用 `workflow_dispatch`），因为 GitHub 的定时任务不保证准时。
+### 定时：不依赖 GitHub 的定时任务
+
+**GitHub 的 `schedule` 定时触发是共享调度器，不保证准时，甚至会长期不触发，换套餐也没用。** 手动触发（`workflow_dispatch`）是可靠的，所以：
+
+**方案 A（推荐先做，免费，约 15 分钟）：外部定时器 → 触发 GitHub 工作流**
+用 cron-job.org（免费）按时向 GitHub 发一个触发请求。工作流本身已支持，不用改代码。
+- 请求：`POST https://api.github.com/repos/<账号>/<仓库>/actions/workflows/radar.yml/dispatches`
+- 请求头：`Authorization: Bearer <令牌>`、`Accept: application/vnd.github+json`、`X-GitHub-Api-Version: 2022-11-28`、`Content-Type: application/json`
+- 请求体：`{"ref":"main"}`，成功返回 **204**
+- 令牌：GitHub → Settings → Developer settings → Fine-grained tokens；只授权这一个仓库，权限 **Actions: Read and write**；**到期后会静默失效，请设日历提醒**。
+- 时区选 Asia/Shanghai，建 6 个任务（全部幂等，多触发无害）：每天 11:05、11:35、12:15、13:45，以及 15:05（监控），周五另加 17:35、18:15（周回顾）。
+
+**方案 B（最稳，完全不依赖 GitHub）：自己的服务器常驻运行**
+程序自带常驻调度（`python -m radar serve`）：每 5 分钟检查一次，到点就发，失败 15 分钟后重试，窗口过后没发完会私信管理员。不需要 cron。
+```bash
+git clone <仓库地址> /opt/radar && cd /opt/radar
+cp .env.example .env && nano .env        # 填密钥
+docker compose up -d --build             # 或：用 deploy/radar.service 做 systemd 服务
+docker compose logs -f                   # 看日志
+```
+所有“免费服务器”（Oracle、Google Cloud 等）注册都要信用卡验证，且免费额度和可用性会变；也可以直接用约 4 美元/月的小型 VPS。内存 512MB 以上即可。
+
+**建议两者并用**：A 先上线，B 作为备份。两边同时触发是安全的：账本保证同一天同一条消息只发一次。
 
 ### 日常运维
 | 场景 | 做法 |
@@ -124,9 +143,9 @@ config/sources.json     数据源清单（启停、权重、备用源）
 config/lexicon.json     政治/AI/商业/体育词表、标签与短剧主题词表
 config/prompts/         大模型提示词（简介、概述、短剧选题）
 radar/                  代码（sources/ 是各数据源适配器）
-tests/                  71 个离线测试：python3 -m unittest discover -s tests
+tests/                  77 个离线测试：python3 -m unittest discover -s tests
 examples/               示例输入与输出
 .github/workflows/      GitHub Actions 工作流
-deploy/                 crontab 与 Dockerfile（方案 B：自有服务器）
+deploy/ + docker-compose.yml   服务器常驻部署（serve）：Dockerfile、systemd、crontab 备选
 state/ archive/         运行时写入：账本、历史、冻结文本、每日归档
 ```

@@ -817,6 +817,70 @@ class ScheduleNewTimeTests(unittest.TestCase):
         self.assertEqual(sch["daily_start"], "11:00")
 
 
+class ServeTests(unittest.TestCase):
+    """常驻调度器：不依赖 cron，也不依赖 GitHub 的定时任务。"""
+    S = config.load_settings()
+
+    def run_loop(self, times, run_rc=0, run_exc=None, loops=None):
+        """times: 每轮的 UTC 时间；返回 (run 次数, watchdog 次数, 睡眠秒数列表, 通知列表)"""
+        it = iter(times)
+        calls = {"run": 0, "watch": 0}
+        waits, notes = [], []
+
+        def run():
+            calls["run"] += 1
+            if run_exc:
+                raise run_exc
+            return run_rc
+        cli.serve_loop(self.S, max_loops=loops or len(times), sleep=waits.append, now_fn=lambda: next(it), run_fn=run,
+                       watchdog_fn=lambda: calls.__setitem__("watch", calls["watch"] + 1),
+                       notify_fn=notes.append, log=lambda *_: None)
+        return calls["run"], calls["watch"], waits, notes
+
+    def utc(self, h, m, day=7):
+        return dt.datetime(2026, 11, day, h, m, tzinfo=dt.timezone.utc)
+
+    def test_runs_only_inside_window(self):
+        # 北京 10:55 / 11:00 / 11:05 / 15:00(过窗) → 02:55 / 03:00 / 03:05 / 07:00 UTC
+        run, watch, waits, _ = self.run_loop([self.utc(2, 55), self.utc(3, 0), self.utc(3, 5)])
+        self.assertEqual(run, 2)                                  # 10:55 不在窗口，不跑
+        self.assertEqual(waits, [300, 300])
+
+    def test_failed_run_retries_in_15_minutes(self):
+        _, _, waits, _ = self.run_loop([self.utc(3, 0), self.utc(3, 15)], run_rc=1)
+        self.assertEqual(waits, [900])
+
+    def test_exceptions_never_kill_the_scheduler_and_notify_once_per_day(self):
+        run, _, waits, notes = self.run_loop([self.utc(3, 0), self.utc(3, 15), self.utc(3, 30)], run_exc=RuntimeError("boom"))
+        self.assertEqual(run, 3)                                  # 三轮都继续
+        self.assertEqual(len(notes), 1)                           # 同一天只通知一次，不刷屏
+        self.assertIn("boom", notes[0])
+        self.assertEqual(waits, [900, 900])
+
+    def test_watchdog_once_per_day_after_deadline(self):
+        _, watch, _, _ = self.run_loop([self.utc(7, 0), self.utc(7, 5), self.utc(7, 10), self.utc(7, 0, day=8)])
+        self.assertEqual(watch, 2)                                # 11/7 一次、11/8 一次
+
+    def test_cmd_serve_refuses_second_instance(self):
+        import fcntl
+        tmp = Path(tempfile.mkdtemp())
+        with mock.patch.object(cli, "STATE", tmp):
+            first = open(tmp / "serve.lock", "w")
+            fcntl.flock(first, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            with mock.patch("builtins.print") as pr:
+                rc = cli.cmd_serve(__import__("argparse").Namespace(max_loops=1))
+            first.close()
+        self.assertEqual(rc, 1)
+        self.assertIn("已有另一个 serve", pr.call_args_list[-1].args[0])
+
+    def test_deploy_files_use_serve(self):
+        root = Path(__file__).resolve().parent.parent
+        self.assertIn("radar", (root / "deploy" / "Dockerfile").read_text("utf-8"))
+        self.assertIn("serve", (root / "deploy" / "Dockerfile").read_text("utf-8"))
+        self.assertIn("restart: unless-stopped", (root / "docker-compose.yml").read_text("utf-8"))
+        self.assertIn("serve", (root / "deploy" / "radar.service").read_text("utf-8"))
+
+
 class WeeklyTests(unittest.TestCase):
     def test_weekly_dedupes_across_days_and_lists_drama(self):
         from radar.pipeline import build_weekly, compact

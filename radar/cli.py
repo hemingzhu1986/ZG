@@ -3,6 +3,7 @@
   python -m radar build --out out        只生成不发送（预览）
   python -m radar run                    正式运行：到点才发，已发不重发
   python -m radar run --force daily      忽略时间窗强制跑日报（测试频道用）
+  python -m radar serve                  常驻调度（不依赖 cron / GitHub 定时任务；服务器上用）
 """
 from __future__ import annotations
 import argparse
@@ -170,6 +171,63 @@ def cmd_watchdog(a) -> int:
     return 0
 
 
+def serve_loop(settings: dict, max_loops: int | None = None, sleep=None, now_fn=None, run_fn=None,
+               watchdog_fn=None, notify_fn=None, log=print) -> None:
+    """常驻调度：每 5 分钟醒来一次，到点就跑（账本保证只发一次）；出错后 15 分钟再试；
+    日报窗口过后仍未完成，当天私信管理员一次。任何异常都不会让进程退出。"""
+    import time as _time
+    sleep = sleep or _time.sleep
+    now_fn = now_fn or (lambda: dt.datetime.now(dt.timezone.utc))
+    run_fn = run_fn or (lambda: cmd_run(argparse.Namespace(force=None)))
+    watchdog_fn = watchdog_fn or (lambda: cmd_watchdog(argparse.Namespace()))
+    notify_fn = notify_fn or _notify_admin
+    last_watch, last_err_day, loops = None, None, 0
+    while max_loops is None or loops < max_loops:
+        loops += 1
+        wait, day = 300, None
+        try:
+            now = now_fn()
+            local = schedule.local_now(settings["timezone"], now)
+            day = local.date().isoformat()
+            if schedule.due(local, settings["schedule"]):
+                rc = run_fn()
+                if rc not in (0, None):
+                    wait = 900                                   # 本轮有失败：15 分钟后重试
+            elif schedule.past_deadline(local, settings["schedule"], "daily") and last_watch != day:
+                last_watch = day
+                watchdog_fn()                                    # 窗口已过：检查日报是否发完，没发完会私信管理员
+        except Exception as e:                                   # 调度器自己永不退出
+            wait = 900
+            msg = f"{type(e).__name__}: {e}"[:300]
+            log(f"[serve] 本轮出错：{msg}")
+            try:
+                if last_err_day != day:
+                    last_err_day = day
+                    notify_fn(f"⚠️ 雷达调度器出错（将自动重试）：{msg}")
+            except Exception:
+                pass
+        if max_loops is None or loops < max_loops:
+            sleep(wait)
+
+
+def cmd_serve(a) -> int:
+    """常驻运行：`python -m radar serve`。适合 Docker / systemd / 任何服务器；不需要 cron，也不依赖 GitHub。"""
+    settings = config.load_settings()
+    STATE.mkdir(parents=True, exist_ok=True)
+    lock = open(STATE / "serve.lock", "w")
+    try:
+        import fcntl
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except ImportError:
+        pass
+    except OSError:
+        print("已有另一个 serve 进程在运行，本进程退出。")
+        return 1
+    print(f"织光内容雷达常驻调度已启动：每天 {settings['schedule']['daily_start']}（{settings['timezone']}）起发送。")
+    serve_loop(settings, max_loops=a.max_loops)
+    return 0
+
+
 def cmd_alert(a) -> int:
     env = _env()
     if not (env.get("TELEGRAM_BOT_TOKEN") and env.get("ADMIN_CHAT_ID")):
@@ -224,6 +282,7 @@ def main(argv=None) -> int:
     b.add_argument("--out", default="out"); b.set_defaults(fn=cmd_build)
     r = sub.add_parser("run"); r.add_argument("--force", choices=["daily", "weekly"]); r.set_defaults(fn=cmd_run)
     sub.add_parser("watchdog").set_defaults(fn=cmd_watchdog)
+    sv = sub.add_parser("serve"); sv.add_argument("--max-loops", type=int, default=None, help=argparse.SUPPRESS); sv.set_defaults(fn=cmd_serve)
     al = sub.add_parser("alert"); al.add_argument("--text", required=True); al.set_defaults(fn=cmd_alert)
     st = sub.add_parser("send-test"); st.add_argument("--to", default="all", choices=["all", "main", "admin", "drama"]); st.set_defaults(fn=cmd_send_test)
     rv = sub.add_parser("resolve"); rv.add_argument("--date", required=True); rv.add_argument("--key", required=True)

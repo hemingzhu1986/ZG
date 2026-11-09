@@ -1,0 +1,14 @@
+# 服务器上一条命令启动：  docker compose up -d --build
+# 前提：同目录有 .env（参考 .env.example）。状态目录挂到宿主机，重启不丢账本。
+services:
+  radar:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      TZ: Asia/Shanghai
+    volumes:
+      - ./state:/app/state
+      - ./archive:/app/archive
