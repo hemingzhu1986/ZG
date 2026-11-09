@@ -3,7 +3,8 @@ name: radar
 # GitHub 的定时任务是“尽力而为”，可能延迟甚至漏触发，所以：
 #  1) 日报窗口（北京 11:00–15:00）内安排了 4 次补跑，账本保证只发一次；
 #  2) 15:05（北京）有一次 watchdog，日报没发完会私信管理员；
-#  3) 强烈建议再配一个外部定时器（如 cron-job.org）调用 workflow_dispatch，见 README。
+#  3) GitHub 的 schedule 不可靠：请务必用外部定时器（cron-job.org）调用 workflow_dispatch，见 README「定时」一节；
+#     或直接在服务器上运行 `python -m radar serve`（完全不依赖 GitHub）。
 on:
   schedule:
     - cron: "7 3 * * *"      # 北京 11:07
