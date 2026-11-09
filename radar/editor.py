@@ -7,10 +7,10 @@ import re
 from .config import load_prompt
 from .models import Item
 from .process import theme_hits
-from .text import has_cjk, first_sentence, trunc
+from .text import has_cjk, first_sentence, trunc, leading_sentences
 
-TAGS = ["明星八卦", "影视综艺", "音乐演出", "短视频·梗", "游戏动漫", "社会热点", "关系讨论", "职场生活", "AI科技",
-        "怀旧", "体育"]
+TAGS = ["明星八卦", "影视综艺", "音乐演出", "短视频·梗", "游戏动漫", "社会热点", "关系讨论", "职场生活", "怀旧", "体育"]
+BLOCKED_TOPICS = ("politics", "ai_tech")
 
 
 def _guess_tags(it: Item, lex: dict) -> list[str]:
@@ -31,8 +31,11 @@ def _apply_llm(items: list[Item], out, log) -> int:
         t, s = str(row.get("title_zh", "")).strip(), str(row.get("summary_zh", "")).strip()
         if not t or not has_cjk(t + s):
             continue
-        it.title_zh = trunc(t, 36)
-        it.summary_zh = trunc(s, 110)
+        it.title_zh = trunc(t, 40)
+        it.summary_zh = trunc(s, 360)
+        topic = str(row.get("topic", "")).strip().lower()
+        if topic in BLOCKED_TOPICS:
+            it.extra["topic"] = topic
         it.tags = [x for x in (row.get("tags") or []) if x in TAGS][:3]
         it.drama_signal = trunc(str(row.get("drama_signal", "")).strip(), 60)
         n += 1
@@ -47,10 +50,11 @@ def enrich(items: list[Item], llm, translator, lex: dict, settings: dict, log=pr
         size = settings.get("llm", {}).get("batch_size", 25)
         for i in range(0, len(todo), size):
             chunk = todo[i:i + size]
-            payload = [{"id": it.id, "title": it.title, "source": it.source_name, "desc": trunc(it.desc, 280),
+            payload = [{"id": it.id, "title": it.title, "source": it.source_name, "kind": it.kind,
+                        "desc": trunc(it.desc, 400), "body": trunc(it.extra.get("body", ""), 1500),
                         "heat": it.heat_text, "region": it.region} for it in chunk]
             try:
-                out = llm.complete_json(system, json.dumps(payload, ensure_ascii=False), max_tokens=6000)
+                out = llm.complete_json(system, json.dumps(payload, ensure_ascii=False), max_tokens=8000)
                 stats["llm"] += _apply_llm(chunk, out, log)
             except Exception as e:
                 log(f"[editor] LLM 批次失败：{type(e).__name__}，该批降级处理")
@@ -68,13 +72,18 @@ def enrich(items: list[Item], llm, translator, lex: dict, settings: dict, log=pr
                     it.title_zh = it.title
                     it.flags.append("untranslated")
                     stats["raw"] += 1
-        # 简介
-        if not it.summary_zh and it.desc:
-            if has_cjk(it.desc):
-                it.summary_zh = first_sentence(it.desc, 90)
-            else:
-                d = translator.translate(first_sentence(it.desc, 120)) if translator else None
-                it.summary_zh = trunc(d, 90) if d else "（英文原文）" + first_sentence(it.desc, 100)
+        # 简介（无大模型时的降级：用来源自带的摘要，按完整句子截取；过短时补正文首句）
+        if not it.summary_zh:
+            src = it.desc
+            if len(src) < 90 and it.extra.get("body"):
+                src = (src + " " + leading_sentences(it.extra["body"], 160)).strip()
+            if src:
+                limit = 80 if it.kind == "chart" else 220
+                if has_cjk(src):
+                    it.summary_zh = leading_sentences(src, limit)
+                else:
+                    d = translator.translate(leading_sentences(src, 260)) if translator else None
+                    it.summary_zh = leading_sentences(d, limit) if d else "（英文原文）" + leading_sentences(src, 160)
         if not it.tags:
             it.tags = _guess_tags(it, lex)
     return stats

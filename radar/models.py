@@ -11,7 +11,7 @@ class Item:
     source_name: str            # 展示名
     region: str = "intl"        # intl | cn
     kind: str = "news"          # trend | rank | news | community | chart | manual
-    section: str = "daily"      # daily | screen | adult
+    section: str = "daily"      # daily | chart | adult
     desc: str = ""
     rank: int | None = None
     metrics: dict = field(default_factory=dict)
@@ -46,3 +46,4 @@ class SourceResult:
     error: str = ""
     secs: float = 0.0
     items: list = field(default_factory=list)
+    sample: str = ""            # 失败时的响应片段（≤300 字符），仅用于诊断

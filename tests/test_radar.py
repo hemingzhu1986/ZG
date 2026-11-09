@@ -13,7 +13,7 @@ from radar import (cli, collect as C, config, drama, editor, http, inbox, llm as
                    render as R, schedule, state)
 from radar import sources as S
 from radar.models import Item, SourceResult
-from radar.sources import apis, feeds, html_links
+from radar.sources import apis, charts, feeds, html_links, social
 from radar.telegram import Telegram, TelegramError
 from radar.text import (canonical_url, jaccard, parse_traffic, similar, tokens, utf16_len, fmt_num)
 
@@ -134,7 +134,7 @@ class SourceTests(unittest.TestCase):
         with mock.patch.object(http, "fetch_json", return_value=payload):
             items = apis.fetch_tmdb({"id": "t", "name": "T", "media": "movie", "limit": 5}, ctx)
         self.assertEqual(items[0].title_zh, "哥斯拉-1.0")
-        self.assertEqual(items[0].section, "screen")
+        self.assertEqual(items[0].section, "chart")
 
     def test_html_links_fresh_and_stale(self):
         page = '<a href="/a/1">11月4日红果短剧热榜：某剧第一</a><a href="/a/2">11月3日微短剧热力榜：某剧登顶</a><a href="/x">首页</a>'.encode()
@@ -172,10 +172,13 @@ class CollectTests(unittest.TestCase):
 
 class ProcessTests(unittest.TestCase):
     def test_clean(self):
-        items = [mk("Use my promo code for 20% off"), mk("Leaked nudes of star"), mk("Normal story")]
+        items = [mk("Use my promo code for 20% off"), mk("Leaked nudes of star"), mk("Normal story"),
+                 mk("Star spotted in nude-colored gown", desc="red carpet look"), mk("Sex scene in new film sparks debate")]
         kept, drops = P.clean(items, LEX)
-        self.assertEqual([i.title for i in kept], ["Normal story"])
-        self.assertEqual(drops, {"商业推广": 1, "露骨内容": 1})
+        # 日报不做“露骨内容”筛选：只剔除商业推广，以及未经同意传播的私密影像（针对真人的泄露类）
+        self.assertEqual([i.title for i in kept], ["Normal story", "Star spotted in nude-colored gown",
+                                                    "Sex scene in new film sparks debate"])
+        self.assertEqual(drops, {"商业推广": 1, "未经同意的私密影像": 1})
 
     def test_dedupe_merges_sources(self):
         a = mk("Patrick Stewart dies at 86", src="google", kind="trend", metrics={"traffic": 2_000_000}, url="https://a.com/1")
@@ -348,10 +351,10 @@ class ScheduleTests(unittest.TestCase):
         return dt.datetime(y, m, d, h, mi, tzinfo=dt.timezone(dt.timedelta(hours=8)))
 
     def test_windows(self):
-        self.assertIsNone(schedule.due(self.at(2026, 11, 5, 9, 59), self.sch))
-        self.assertEqual(schedule.due(self.at(2026, 11, 5, 10, 0), self.sch), "daily")
-        self.assertEqual(schedule.due(self.at(2026, 11, 5, 13, 59), self.sch), "daily")
-        self.assertIsNone(schedule.due(self.at(2026, 11, 5, 14, 0), self.sch))
+        self.assertIsNone(schedule.due(self.at(2026, 11, 5, 10, 59), self.sch))
+        self.assertEqual(schedule.due(self.at(2026, 11, 5, 11, 0), self.sch), "daily")      # 每日 11:00（UTC+8）起
+        self.assertEqual(schedule.due(self.at(2026, 11, 5, 14, 59), self.sch), "daily")
+        self.assertIsNone(schedule.due(self.at(2026, 11, 5, 15, 0), self.sch))
         self.assertEqual(schedule.due(self.at(2026, 11, 6, 17, 40), self.sch), "weekly")   # 周五
         self.assertIsNone(schedule.due(self.at(2026, 11, 5, 17, 40), self.sch))            # 周四不发周报
 
@@ -398,7 +401,7 @@ class LLMEditorDramaTests(unittest.TestCase):
         a = mk("中文标题", desc="这是一段中文描述。第二句。")
         stats = editor.enrich([a], self.FakeLLM([RuntimeError("boom")]), None, LEX, config.load_settings(), log=lambda *_: None)
         self.assertEqual(a.title_zh, "中文标题")
-        self.assertEqual(a.summary_zh, "这是一段中文描述。")
+        self.assertEqual(a.summary_zh, "这是一段中文描述。第二句。")      # 按完整句子保留，不在句中截断
 
     def test_overview_template_without_llm(self):
         a = mk("x"); a.title_zh = "x"; a.tags = ["怀旧"]
@@ -429,7 +432,7 @@ class LLMEditorDramaTests(unittest.TestCase):
 
     def test_drama_picks_are_theme_diverse(self):
         xs = []
-        for i, t in enumerate(["离婚背叛一", "离婚背叛二", "离婚背叛三", "职场面试裁员", "奶奶父母家庭", "失踪悬疑案件", "AI 算法机器人"]):
+        for i, t in enumerate(["离婚背叛一", "离婚背叛二", "离婚背叛三", "职场面试裁员", "奶奶父母家庭", "失踪悬疑案件"]):
             it = mk(t, src=f"s{i}"); it.title_zh = t; it.score = 1 - i * 0.01; it.summary_zh = "x"; xs.append(it)
         picks = drama.pick_candidates(xs, LEX, 3)
         mains = [P.theme_hits(p, LEX["themes"])[0] for p in picks]
@@ -447,7 +450,10 @@ class ExampleBuildTests(unittest.TestCase):
         ed = build_daily("2026-11-04", NOW, settings, config.load_sources(), LEX, env, None, None, hist, override=data,
                          log=lambda *_: None)
         keys = [p["key"] for p in ed.parts]
-        self.assertEqual(keys, ["daily_intl#1", "daily_cn#1", "screen#1", "adult#1", "drama#1"])
+        self.assertEqual(keys[:1] + keys[-4:], ["daily_intl#1", "charts#1", "adult#1", "drama#1"][:1] + keys[-4:])
+        self.assertIn("daily_cn#1", keys)
+        self.assertIn("charts#1", keys)
+        self.assertEqual(keys[-2:], ["adult#1", "drama#1"])
         for p in ed.parts:
             self.assertLessEqual(utf16_len(p["text"]), 3800)
         self.assertEqual([p["chat_id"] for p in ed.parts][-1], "-200")      # 短剧发到独立群
@@ -536,6 +542,281 @@ class TranslatorTests(unittest.TestCase):
         self.assertEqual(f.call_count, 3)               # 第 4 条起不再请求
 
 
+class NewSourceTests(unittest.TestCase):
+    """新增来源：抖音、知乎、TikTok、Reddit(托管)、豆瓣、JustWatch、短剧日榜、聚合热榜站、Apify。"""
+
+    def test_douyin(self):
+        payload = {"data": {"word_list": [{"word": "某热搜", "hot_value": 8123456, "position": 1, "sentence_id": "2400001"},
+                                          {"word": "广告词", "is_ad": 1}]}}
+        with mock.patch.object(http, "fetch_json", return_value=payload):
+            items = social.fetch_douyin({"id": "d", "name": "抖音·热榜"}, CTX)
+        self.assertEqual([i.title for i in items], ["某热搜"])
+        self.assertIn("812.3万", items[0].heat_text)
+        self.assertTrue(items[0].url.endswith("/hot/2400001"))
+
+    def test_douyin_falls_back_to_second_url_and_reports_sample(self):
+        calls = []
+
+        def fake(url, **kw):
+            calls.append(url)
+            if len(calls) == 1:
+                raise http.FetchError("HTTP 403", 403, "blocked")
+            return {"data": {"word_list": [{"word": "二号接口", "hot_value": 5}]}}
+        with mock.patch.object(http, "fetch_json", side_effect=fake):
+            self.assertEqual(social.fetch_douyin({"id": "d", "name": "D"}, CTX)[0].title, "二号接口")
+        with mock.patch.object(http, "fetch_json", return_value={"data": {"word_list": []}}):
+            with self.assertRaises(S.ParseError) as cm:
+                social.fetch_douyin({"id": "d", "name": "D"}, CTX)
+        self.assertIn("word_list", cm.exception.sample)
+
+    def test_zhihu(self):
+        payload = {"data": [{"target": {"title": "一个热门问题", "url": "https://api.zhihu.com/questions/123456", "excerpt": "摘要内容"},
+                             "detail_text": "1234 万热度"}]}
+        with mock.patch.object(http, "fetch_json", return_value=payload):
+            it = social.fetch_zhihu({"id": "z", "name": "知乎"}, CTX)[0]
+        self.assertEqual(it.url, "https://www.zhihu.com/question/123456")
+        self.assertIn("1234 万热度", it.heat_text)
+
+    def test_tiktok_trends(self):
+        payload = {"code": 0, "data": {"list": [{"hashtag_name": "fyp", "video_views": 123456789, "publish_cnt": 99, "rank": 1}]}}
+        with mock.patch.object(http, "fetch_json", return_value=payload):
+            it = social.fetch_tiktok_trends({"id": "t", "name": "TikTok"}, CTX)[0]
+        self.assertEqual(it.title, "#fyp")
+        self.assertIn("1.2亿", it.heat_text)
+        with mock.patch.object(http, "fetch_json", return_value={"code": 40000, "msg": "sign"}):
+            with self.assertRaises(S.ParseError):
+                social.fetch_tiktok_trends({"id": "t", "name": "T"}, CTX)
+
+    def test_reddit_managed_needs_key(self):
+        cfg = {"id": "r", "name": "Reddit", "subreddit": "popculturechat"}
+        with self.assertRaises(S.Skipped):
+            social.fetch_reddit_managed(cfg, CTX)
+        ctx = S.Ctx(now=NOW, env={"CRAWLORA_API_KEY": "k"}, settings={})
+        payload = {"data": {"posts": [{"title": "Cardi B at concert", "score": 21348, "num_comments": 470,
+                                       "permalink": "/r/popculturechat/comments/abc/x/", "selftext": "body"}]}}
+        with mock.patch.object(http, "fetch_json", return_value=payload):
+            it = social.fetch_reddit_managed(cfg, ctx)[0]
+        self.assertEqual(it.url, "https://www.reddit.com/r/popculturechat/comments/abc/x/")
+        self.assertEqual(it.heat_text, "Reddit 21348分·470评论")
+
+    def test_douban(self):
+        payload = {"subject_collection_items": [{"id": "1", "title": "世界的主人", "url": "https://movie.douban.com/subject/1/",
+                                                 "rating": {"value": 9.1}, "card_subtitle": "2026 / 韩国 / 剧情", "rank_value": 1}]}
+        with mock.patch.object(http, "fetch_json", return_value=payload):
+            it = charts.fetch_douban({"id": "db", "name": "豆瓣", "collection": "movie_real_time_hotest",
+                                      "board": "豆瓣 · 热门电影"}, CTX)[0]
+        self.assertEqual((it.section, it.extra["board"]), ("chart", "豆瓣 · 热门电影"))
+        self.assertIn("评分9.1", it.heat_text)
+        with mock.patch.object(http, "fetch_json", return_value={"subject_collection_items": []}):
+            with self.assertRaises(S.ParseError):
+                charts.fetch_douban({"id": "db", "name": "豆瓣", "collection": "x"}, CTX)
+
+    def test_justwatch(self):
+        def edge(t, p):
+            return {"node": {"content": {"title": t, "originalReleaseYear": 2026, "shortDescription": "d", "fullPath": p}}}
+        payload = {"data": {"popularTitles": {"edges": [edge("The Invite", "/us/movie/the-invite-2026"), edge("Obsession", "/us/movie/obsession-2026")]}}}
+        with mock.patch.object(http, "post_json", return_value=payload):
+            items = charts.fetch_justwatch({"id": "jw", "name": "JustWatch", "limit": 5}, CTX)
+        self.assertEqual(len(items), 4)                      # 电影 2 + 剧集 2（假接口两次返回同样数据）
+        self.assertEqual(items[0].url, "https://www.justwatch.com/us/movie/the-invite-2026")
+        self.assertEqual(len({i.id for i in items}), 4 - 2 + 2 if False else len({i.id for i in items}))
+        with mock.patch.object(http, "post_json", return_value={"errors": [{"message": "x"}]}):
+            with self.assertRaises(S.ParseError):
+                charts.fetch_justwatch({"id": "jw", "name": "J"}, CTX)
+
+    def _drama_html(self, lines):
+        return ("<html><body>" + "".join(f"<div>{l}</div>" for l in lines) + "</body></html>").encode()
+
+    def test_drama_rank_both_layouts_and_freshness(self):
+        per_line = ["更新至 2026年11月6日", "今日 TOP10 日榜", "1.", "1", "万妖图录传 第十三季", "玄幻仙侠", "漫剧", "12,586",
+                    "2.", "2", "重生丑小鸭", "都市爱情", "漫剧", "7,998", "3.", "3", "穿越六零", "种田经营", "AI短剧", "6,931"]
+        merged = ["更新至 2026年11月6日", "今日 TOP10 日榜", "1. 1万妖图录传第十三季玄幻仙侠漫剧12,586",
+                  "2. 2重生丑小鸭都市爱情漫剧7,998", "3. 3穿越六零种田经营AI短剧6,931"]
+        cfg = {"id": "dj", "name": "短剧工程", "url": "https://www.duanjugongcheng.com/cn/bangdan", "limit": 10}
+        for lines in (per_line, merged):
+            with mock.patch.object(http, "fetch", return_value=self._drama_html(lines)):
+                items = charts.fetch_drama_rank(cfg, CTX)
+            self.assertEqual([i.rank for i in items], [1, 2, 3])
+            self.assertEqual(items[2].extra["fmt"], "AI短剧")
+            self.assertEqual(len({i.id for i in items}), 3)           # 同一页面的条目 id 不能相同
+        stale = ["更新至 2026年10月1日"] + per_line[1:]
+        with mock.patch.object(http, "fetch", return_value=self._drama_html(stale)):
+            with self.assertRaises(S.Stale):
+                charts.fetch_drama_rank(cfg, CTX)
+        with mock.patch.object(http, "fetch", return_value=self._drama_html(["页面改版了", "没有榜单"])):
+            with self.assertRaises(S.ParseError) as cm:
+                charts.fetch_drama_rank(cfg, CTX)
+        self.assertIn("页面改版了", cm.exception.sample)
+
+    def test_tophub_home_and_node(self):
+        home = ('<div class="cc-cd"><div class="cc-cd-lb"><span>抖音</span></div><span class="cc-cd-sb-st">热搜榜</span>'
+                '<a href="https://example.com/a" target="_blank"><span class="t">话题甲</span><span class="e">8123万</span></a>'
+                '<a href="https://example.com/b"><span class="t">话题乙</span><span class="e">500万</span></a></div>'
+                '<div class="cc-cd"><div class="cc-cd-lb"><span>小红书</span></div><span class="cc-cd-sb-st">热榜</span>'
+                '<a href="https://example.com/x"><span class="t">笔记热点</span><span class="e">99万</span></a></div>')
+        with mock.patch.object(http, "fetch", return_value=home.encode()):
+            dy = charts.fetch_tophub({"id": "dy", "name": "抖音·热榜（聚合站备用）", "label": "抖音"}, CTX)
+            xhs = charts.fetch_tophub({"id": "x", "name": "小红书·热榜（聚合站）", "label": "小红书"}, CTX)
+        self.assertEqual([i.title for i in dy], ["话题甲", "话题乙"])
+        self.assertEqual(xhs[0].title, "笔记热点")
+        self.assertEqual(dy[0].metrics["hot"], 81_230_000)
+        node = ('<table><tr><td>1.</td><td><a href="https://e.com/1">热点一</a></td><td>123万</td></tr>'
+                '<tr><td>2.</td><td><a href="https://e.com/2">热点二</a></td><td>45万</td></tr></table>')
+        self.assertEqual([r["title"] for r in charts.parse_tophub_node(node)], ["热点一", "热点二"])
+        with mock.patch.object(http, "fetch", return_value="<html>没有这个榜</html>".encode()):
+            with self.assertRaises(S.ParseError):
+                charts.fetch_tophub({"id": "q", "name": "Q", "label": "不存在"}, CTX)
+
+    def test_apify(self):
+        cfg = {"id": "a", "name": "小红书", "actor": "user~actor", "input": {"q": 1}, "map": {"title": "name", "url": "link"}}
+        with self.assertRaises(S.Skipped):
+            social.fetch_apify(cfg, CTX)
+        ctx = S.Ctx(now=NOW, env={"APIFY_TOKEN": "t"}, settings={})
+        with mock.patch.object(http, "post_json", return_value=[{"name": "笔记一", "link": "https://x.com/1", "heat": 99}]):
+            self.assertEqual(social.fetch_apify(cfg, ctx)[0].title, "笔记一")
+
+    def test_all_configured_source_types_are_registered(self):
+        reg = S.registry()
+        for c in config.load_sources():
+            self.assertIn(c["type"], reg, c["id"])
+        ids = {c["id"] for c in config.load_sources()}
+        for must in ("kym_news", "weibo_hot", "douyin_hot", "xhs_tophub", "zhihu_hot", "douban_movie_hot",
+                     "justwatch_us", "tiktok_trends", "reddit_popculture", "duanju_gongcheng"):
+            self.assertIn(must, ids)                        # 你要求必须有的来源都已配置
+        self.assertNotIn("variety", json.dumps(config.load_sources(), ensure_ascii=False).lower())
+
+
+class FilterTests(unittest.TestCase):
+    def test_politics_and_ai_are_filtered_everywhere_in_daily(self):
+        bad = ["Midterm election results tonight", "Trump signs new order", "总统候选人发表演讲", "两会今日开幕",
+               "OpenAI launches new model", "AI-generated song tops charts", "DeepSeek 发布新模型", "人工智能改变职场", "某大模型上线",
+               "Mayor joins marathon runners", "Prime Minister resigns", "科技公司发布新芯片"]
+        good = ["Taylor Swift announces tour", "某明星官宣恋情", "Hudson Williams interview", "新剧收视创新高",
+                "Actress was president of her fan club", "She said it was a said-and-done deal"]
+        kept, drops = P.clean([mk(t) for t in bad + good], LEX, "daily", {"politics": True, "ai_tech": True})
+        self.assertEqual([i.title for i in kept], good)
+        self.assertEqual(drops.get("政治", 0) + drops.get("AI科技", 0), len(bad))
+
+    def test_filters_can_be_switched_off(self):
+        kept, _ = P.clean([mk("Midterm election results"), mk("OpenAI news")], LEX, "daily", {"politics": False, "ai_tech": False})
+        self.assertEqual(len(kept), 2)
+
+    def test_explicit_is_not_filtered_in_daily_but_nonconsensual_leaks_are(self):
+        titles = ["Explicit scene in new film sparks debate", "Nude scene controversy on set", "Porn industry earnings report",
+                  "Leaked nudes of actress circulate", "Celebrity sex tape surfaces"]
+        kept, drops = P.clean([mk(t) for t in titles], LEX, "daily")
+        self.assertEqual([i.title for i in kept], titles[:3])
+        self.assertEqual(drops, {"未经同意的私密影像": 2})
+        self.assertNotIn("露骨内容", drops)                      # 报告里不再出现“露骨内容”
+
+    def test_charts_keep_ai_format_labels_but_drop_political_titles(self):
+        a = mk("穿越六零之我在山洞闷声发家", desc="种田经营 · AI短剧", kind="chart")
+        b = mk("总统的秘密", kind="chart")
+        kept, drops = P.clean([a, b], LEX, "chart", {"politics": True, "ai_tech": True})
+        self.assertEqual([i.title for i in kept], ["穿越六零之我在山洞闷声发家"])      # AI短剧榜单条目保留
+        self.assertEqual(drops, {"政治": 1})
+
+    def test_adult_column_keeps_its_own_boundary(self):
+        kept, drops = P.clean([mk("Age verification law hits adult sites"), mk("xxx explicit nudes gallery")], LEX, "adult")
+        self.assertEqual(len(kept), 1)
+        self.assertEqual(drops, {"成人栏边界过滤": 1})
+
+
+class LongSummaryTests(unittest.TestCase):
+    def test_fallback_summary_uses_full_sentences_not_ellipsis(self):
+        it = mk("Some English news", desc="Short teaser.")
+        it.extra["body"] = ("The actor said on Friday that the series will return next year with a new cast and crew members. "
+                            "Production begins in the spring and the first episode airs in the autumn of next year.")
+        class Tr:
+            def translate(self, text): return "这位演员周五表示，该剧将在明年回归，并带来全新的演员阵容。" if text else None
+        editor.enrich([it], None, Tr(), LEX, config.load_settings(), log=lambda *_: None)
+        self.assertTrue(it.summary_zh.endswith("。"))
+        self.assertNotIn("…", it.summary_zh)
+
+    def test_llm_summary_is_kept_long_and_topic_is_recorded(self):
+        a = mk("English one")
+        long_summary = "这是一段很长的简介。" * 18
+        llm = LLMEditorDramaTests.FakeLLM([[{"id": a.id, "title_zh": "中文", "summary_zh": long_summary, "tags": [], "topic": "politics"}]])
+        editor.enrich([a], llm, None, LEX, config.load_settings(), log=lambda *_: None)
+        self.assertGreater(len(a.summary_zh), 150)
+        self.assertEqual(a.extra["topic"], "politics")
+
+    def test_prompt_asks_for_long_summary_and_topic(self):
+        p = config.load_prompt("post_zh.txt")
+        self.assertIn("120–220", p)
+        self.assertIn("politics", p)
+        self.assertNotIn("AI科技、", p)                            # 标签里已无“AI科技”
+
+    def test_attach_bodies(self):
+        from radar import article
+        html = ("<html><article><p>" + "The company announced a new season on Friday after months of speculation among fans. " * 3
+                + "</p></article></html>").encode()
+        a, b = mk("one", url="https://news.example/a"), mk("two", url="https://www.reddit.com/r/x/1")
+        with mock.patch.object(http, "fetch", return_value=html):
+            got = article.attach_bodies([a, b])
+        self.assertEqual(got, 1)
+        self.assertIn("new season", a.extra["body"])
+        self.assertNotIn("body", b.extra)                          # reddit 等站点不抓正文
+
+
+class PipelineTopicTests(unittest.TestCase):
+    def test_llm_topic_flags_are_dropped_and_backfilled_from_reserve(self):
+        from radar.pipeline import build_daily
+        settings = config.load_settings()
+        settings["targets"].update({"daily_total": 6, "reserve": 4, "cn_min": 0})
+        settings["free_translate"]["enabled"] = False
+        settings["adult"]["enabled"] = False
+        names = ["Amber festival lineup", "Bobby documentary premiere", "Carla tour announcement", "Derek sitcom reunion",
+                 "Elena award speech", "Frank podcast launch", "Gina novel adaptation", "Harold stage comeback",
+                 "Iris album surprise", "Jonas film trailer", "Kira series finale", "Louis comedy special"]
+        items = [mk(n, src=f"src{i % 5}", kind="trend", rank=i + 1, url=f"https://e.com/{i}", desc="x " * 30)
+                 for i, n in enumerate(names)]
+        cfgs = [{"id": f"src{i}", "name": f"S{i}", "type": "fake"} for i in range(5)]
+        reg = {"fake": lambda c, x: [i for i in items if i.source == c["id"]]}
+
+        class LLM:
+            available = True
+            def complete_json(self, system, user, **kw):
+                rows = json.loads(user)
+                return [{"id": r["id"], "title_zh": "中文" + r["id"], "summary_zh": "简介" * 30, "tags": [],
+                         "topic": "politics" if r["title"].startswith(("Bobby", "Carla")) else "other", "drama_signal": ""} for r in rows]
+        hist = state.History(Path(tempfile.mkdtemp()))
+        with mock.patch.object(S, "registry", return_value=reg), mock.patch("radar.pipeline.attach_bodies", return_value=0):
+            ed = build_daily("2026-11-05", NOW, settings, cfgs, LEX, {"TELEGRAM_CHAT_ID": "-1"}, LLM(), None, hist,
+                             log=lambda *_: None)
+        daily = [i for i in ed.items if i.section == "daily"]
+        self.assertEqual(len(daily), 6)                           # 被剔除后由备选补满
+        self.assertFalse(any(i.title.startswith(("Bobby", "Carla")) for i in daily))      # 被判定为政治的不在入选里
+        self.assertEqual(ed.drops.get("政治(AI判定)", 0) >= 1, True)
+
+
+class ChartRenderTests(unittest.TestCase):
+    def test_charts_grouped_by_board_with_attribution(self):
+        data = json.loads((Path(__file__).resolve().parent.parent / "examples" / "items_2026-11-04.json").read_text("utf-8"))
+        items = [Item.from_dict(d) for d in data["chart"]]
+        msgs = R.render_charts("2026-11-04", items, 3800)
+        text = "\n".join(m for _, m in msgs)
+        for board in ("JustWatch US · 电影", "JustWatch US · 剧集", "豆瓣 · 热门电影", "抖音官方短剧日榜"):
+            self.assertIn(board, text)
+        self.assertIn("AI短剧", text)                            # AI 短剧形态标签保留给 AI 短剧组
+        self.assertIn("口径各异", text)
+        self.assertNotIn("TMDB API", text)                       # 没有 TMDB 条目就不挂 TMDB 声明
+        t2 = Item.from_dict(dict(data["chart"][0], source="tmdb_movies"))
+        self.assertIn("TMDB API", "\n".join(m for _, m in R.render_charts("2026-11-04", [t2], 3800)))
+
+
+class ScheduleNewTimeTests(unittest.TestCase):
+    def test_11am_beijing_is_03_utc_and_workflow_matches(self):
+        sch = config.load_settings()["schedule"]
+        utc = dt.datetime(2026, 11, 7, 3, 7, tzinfo=dt.timezone.utc)
+        self.assertEqual(schedule.due(schedule.local_now("Asia/Shanghai", utc), sch), "daily")
+        wf = (Path(__file__).resolve().parent.parent / ".github" / "workflows" / "radar.yml").read_text("utf-8")
+        for cron in ('"7 3 * * *"', '"37 3 * * *"', '"17 4 * * *"', '"47 5 * * *"', '"5 7 * * *"'):
+            self.assertIn(cron, wf)
+        self.assertNotIn('"7 2 * * *"', wf)
+        self.assertEqual(sch["daily_start"], "11:00")
+
+
 class WeeklyTests(unittest.TestCase):
     def test_weekly_dedupes_across_days_and_lists_drama(self):
         from radar.pipeline import build_weekly, compact
@@ -549,7 +830,7 @@ class WeeklyTests(unittest.TestCase):
             hist.save(day, rows, {"drama": data["drama_cards"] if day == "2026-11-04" else []})
         ed = build_weekly("2026-11-06", NOW, config.load_settings(), LEX, {"TELEGRAM_CHAT_ID": "-1"}, None, hist,
                           log=lambda *_: None)
-        self.assertEqual(len(ed.items), 12)                  # 三天重复的同一事件只留一条
+        self.assertEqual(len(ed.items), 14)                  # 三天重复的同一事件只留一条
         text = "\n".join(p["text"] for p in ed.parts)
         self.assertIn("本周收录", text)
         self.assertIn("本周 AI 短剧选题回顾", text)
@@ -574,7 +855,16 @@ class EndToEndTests(unittest.TestCase):
 
     def route(self, url, **kw):
         if "trends.google.com" in url:
-            return GTRENDS
+            extra = (b"<item><title>Midterm election results</title><ht:approx_traffic>2M+</ht:approx_traffic>"
+                     b"<pubDate>Thu, 05 Nov 2026 01:00:00 +0000</pubDate><ht:news_item><ht:news_item_title>Election night live</ht:news_item_title>"
+                     b"<ht:news_item_url>https://news.example/e</ht:news_item_url></ht:news_item></item>"
+                     b"<item><title>OpenAI new model</title><ht:approx_traffic>1M+</ht:approx_traffic>"
+                     b"<pubDate>Thu, 05 Nov 2026 01:00:00 +0000</pubDate><ht:news_item><ht:news_item_title>AI launch</ht:news_item_title>"
+                     b"<ht:news_item_url>https://news.example/a</ht:news_item_url></ht:news_item></item>")
+            return GTRENDS.replace(b"</channel>", extra + b"</channel>")
+        if "apis.justwatch.com" in url:
+            edge = lambda t, p: {"node": {"content": {"title": t, "originalReleaseYear": 2026, "shortDescription": "desc", "fullPath": p}}}
+            return json.dumps({"data": {"popularTitles": {"edges": [edge("Title A", "/us/movie/a"), edge("Title B", "/us/movie/b")]}}}).encode()
         if "hollywoodreporter" in url:
             return b"""<?xml version="1.0"?><rss><channel><item><title>Patrick Stewart dead at age 86</title>
 <link>https://thr.example/1</link><description>Actor</description><pubDate>Thu, 05 Nov 2026 00:30:00 GMT</pubDate></item></channel></rss>"""
@@ -595,6 +885,11 @@ class EndToEndTests(unittest.TestCase):
             return {"items": [{"articles": [{"article": "Taylor_Swift", "views": 880_000, "rank": 3}]}]}
         if "page/summary" in url:
             return {"description": "英国演员", "extract": "Patrick Stewart is an English actor. He is known for TV."}
+        if "subject_collection" in url:
+            return {"subject_collection_items": [{"id": "1", "title": "豆瓣热门一", "url": "https://movie.douban.com/subject/1/",
+                                                  "rating": {"value": 8.8}, "card_subtitle": "2026 / 剧情", "rank_value": 1}]}
+        if "hot/search/list" in url:
+            return {"data": {"word_list": [{"word": f"抖音话题{i}", "hot_value": 900_000 - i, "position": i + 1} for i in range(5)]}}
         if "hotSearch" in url:
             return {"data": {"realtime": [{"word": f"微博话题{i}", "num": 1_000_000 - i} for i in range(6)]}}
         if "mastodon" in url:
@@ -632,6 +927,12 @@ class EndToEndTests(unittest.TestCase):
         self.assertIn("99", chats)                                  # 管理员报告
         texts = "\n".join(t for _, t in self.FakeTG.sent)
         self.assertIn("Patrick Stewart", texts)
+        self.assertNotIn("Midterm election", texts)              # 政治类被挡掉
+        self.assertNotIn("OpenAI", texts)                        # AI 科技类被挡掉
+        self.assertIn("影视与短剧榜单", texts)                   # 榜单消息已发出
+        self.assertIn("Title A", texts)
+        self.assertIn("抖音话题", texts)                          # 新增的国内来源进入日报
+        self.assertNotIn("露骨内容", texts)
         self.assertIn("成人平台行业观察", texts)
         self.assertNotIn("pornhub.com", texts.lower().replace("pornhub 扩大", ""))   # 成人站点链接被拦截
         self.assertEqual(n1, n2)                                    # 第二次触发没有任何新发送

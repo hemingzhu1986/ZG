@@ -15,6 +15,18 @@ def source_table(results) -> str:
     return "\n".join(rows)
 
 
+def doctor_details(results) -> str:
+    """doctor 专用：正常的来源给出前两条示例，失败的来源给出响应片段，方便据实修正解析。"""
+    lines = []
+    for r in sorted(results, key=lambda x: x.id):
+        if r.status == "ok" and r.items:
+            ex = " ／ ".join((i.title_zh or i.title)[:26] for i in r.items[:2])
+            lines.append(f"  · {r.name}：{ex}")
+        elif r.status in ("error", "stale") and r.sample:
+            lines.append(f"  · {r.name} 响应片段：{r.sample[:220]!r}")
+    return "\n".join(lines)
+
+
 def admin_report(date: str, results, gaps: dict, drops: dict, enrich_stats: dict, llm_on: bool,
                  publish_res: dict | None, notes: list[str]) -> str:
     bad = [r for r in results if r.status in ("error", "stale")]

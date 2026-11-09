@@ -16,6 +16,14 @@ class Stale(Exception):
     """来源可访问，但内容已过期（不能当作今天的热点）。"""
 
 
+class ParseError(Exception):
+    """来源可访问，但返回内容不是预期的格式（多半是对方改版）。sample 保留响应片段供诊断。"""
+
+    def __init__(self, msg: str, sample: str = ""):
+        super().__init__(msg)
+        self.sample = (sample or "")[:300]
+
+
 @dataclass
 class Ctx:
     now: dt.datetime
@@ -57,8 +65,17 @@ def compile_re(p: str | None):
 
 
 def registry():
-    from . import feeds, apis, html_links
+    from . import feeds, apis, html_links, charts, social
     return {
+        "justwatch": charts.fetch_justwatch,
+        "douban": charts.fetch_douban,
+        "drama_rank": charts.fetch_drama_rank,
+        "tophub": charts.fetch_tophub,
+        "douyin_hot": social.fetch_douyin,
+        "zhihu_hot": social.fetch_zhihu,
+        "tiktok_trends": social.fetch_tiktok_trends,
+        "reddit_managed": social.fetch_reddit_managed,
+        "apify": social.fetch_apify,
         "rss": feeds.fetch_rss,
         "google_trends": feeds.fetch_google_trends,
         "wikipedia_top": apis.fetch_wikipedia_top,

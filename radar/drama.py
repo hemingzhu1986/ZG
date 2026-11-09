@@ -26,15 +26,21 @@ def pick_candidates(items: list[Item], lex: dict, k: int = 3, history_items: lis
         scored.append((s, hits, it))
     scored.sort(key=lambda x: -x[0])
     picks, used = [], set()
-    for s, hits, it in scored:
+    for s, hits, it in scored:                      # 第一轮：主题互不相同，保证三张卡不写同一个故事
         main = hits[0] if hits else "其他"
-        if main in used and len(scored) > k * 2:
+        if main in used:
             continue
         it.extra["themes"] = hits
         picks.append(it)
         used.add(main)
         if len(picks) >= k:
-            break
+            return picks
+    for s, hits, it in scored:                      # 第二轮：主题不够多时，按分数补满
+        if it not in picks:
+            it.extra["themes"] = hits
+            picks.append(it)
+            if len(picks) >= k:
+                break
     return picks
 
 

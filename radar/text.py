@@ -44,9 +44,9 @@ def host_of(u: str) -> str:
     return h[4:] if h.startswith("www.") else h
 
 
-def item_id(url: str, title: str) -> str:
+def item_id(url: str, title: str, salt: str = "") -> str:
     base = canonical_url(url) or (title or "").strip().lower()
-    return hashlib.sha1(base.encode("utf-8")).hexdigest()[:12]
+    return hashlib.sha1((base + "|" + salt).encode("utf-8")).hexdigest()[:12]
 
 
 def tokens(s: str) -> set[str]:
@@ -91,6 +91,20 @@ def first_sentence(s: str, n: int = 80) -> str:
     s = strip_html(s)
     m = re.split(r"(?<=[。！？.!?])\s*", s, maxsplit=1)
     return trunc(m[0] if m and m[0] else s, n)
+
+
+def leading_sentences(s: str, max_chars: int = 200) -> str:
+    """取开头的若干完整句子，总长不超过 max_chars；第一句本身过长时才截断。"""
+    s = strip_html(s)
+    if len(s) <= max_chars:
+        return s
+    parts = re.findall(r".+?(?:[。！？]+|[.!?]+(?=\s|$)|$)", s)
+    out = ""
+    for p in parts:
+        if len(out) + len(p) > max_chars:
+            break
+        out += p
+    return out.strip() or trunc(s, max_chars)
 
 
 def fmt_num(n: float) -> str:

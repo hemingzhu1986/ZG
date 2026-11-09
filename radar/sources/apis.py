@@ -161,12 +161,14 @@ def fetch_tmdb(cfg: dict, ctx) -> list[Item]:
         zh = r.get("title") or r.get("name") or ""
         orig = r.get("original_title") or r.get("original_name") or ""
         page = f"https://www.themoviedb.org/{media}/{r['id']}"
-        it = Item(id=item_id(page, zh), title=orig or zh, url=page, source=cfg["id"], source_name=cfg["name"],
-                  region="intl", kind="chart", section="screen", rank=idx, desc=trunc(r.get("overview", ""), 300),
+        label = "电影" if media == "movie" else "剧集"
+        it = Item(id=item_id(page, zh, salt=f"tmdb|{idx}"), title=orig or zh, url=page, source=cfg["id"], source_name=cfg["name"],
+                  region="intl", kind="chart", section="chart", rank=idx, desc=trunc(r.get("overview", ""), 300),
                   metrics={"popularity": float(r.get("popularity", 0))},
-                  title_zh=zh if has_cjk(zh) else "", heat_text=f"TMDB日趋势第{idx}")
-        it.extra.update({"media": media, "original_title": orig,
-                         "date": r.get("release_date") or r.get("first_air_date") or ""})
+                  title_zh=zh if has_cjk(zh) else "", heat_text=f"TMDB{label}日趋势第{idx}")
+        it.extra.update({"media": media, "original_title": orig, "board": f"TMDB · {label}日趋势",
+                         "board_order": 0 if media == "movie" else 1, "board_note": "TMDB 站内趋势热度，不是票房或收视",
+                         "subtitle": (r.get("release_date") or r.get("first_air_date") or "")[:4]})
         out.append(it)
         if len(out) >= cfg.get("limit", 5):
             break

@@ -42,7 +42,11 @@ def cmd_doctor(a) -> int:
     now = dt.datetime.now(dt.timezone.utc)
     only = set(a.only.split(",")) if a.only else None
     res = collect(cfgs, Ctx(now=now, env=_env(), settings=settings), only)
-    print(health.source_table(res).replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">"))
+    un = lambda t: t.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
+    print(un(health.source_table(res)))
+    det = health.doctor_details(res)
+    if det:
+        print("\n── 详情（正常来源的示例条目；失败来源的响应片段）──\n" + un(det))
     ok = sum(r.status == "ok" for r in res)
     print(f"\n正常 {ok}/{len(res)}。experimental 的源失败属正常现象——以此处输出为准，把失败的源在 config/sources.json 里关掉或换 URL。")
     if a.json:

@@ -10,10 +10,15 @@ from .text import tokens, jaccard, similar, canonical_url, has_cjk, heat_log
 
 
 # ───────────────────────── 清洗 ─────────────────────────
-def clean(items: list[Item], lex: dict, section: str = "daily") -> tuple[list[Item], dict]:
-    """剔除商业推广、露骨内容；标记体育。返回（保留项，剔除统计）。"""
+def clean(items: list[Item], lex: dict, section: str = "daily", filters: dict | None = None) -> tuple[list[Item], dict]:
+    """清洗：剔除商业推广；日报/榜单屏蔽政治与 AI 科技话题；成人栏只做“非露骨”边界过滤。
+    日报不做“露骨内容”筛选；唯一底线是未经当事人同意传播的私密影像（针对真人的泄露类内容）。"""
+    filters = filters if filters is not None else {"politics": True, "ai_tech": True}
     commercial = re.compile(lex["commercial_re"], re.I)
-    explicit = re.compile(lex["explicit_re"], re.I)
+    ncii = re.compile(lex["ncii_re"], re.I)
+    adult_explicit = re.compile(lex["adult_explicit_re"], re.I)
+    politics = re.compile(lex["politics_re"], re.I)
+    ai_cs, ai_ci = re.compile(lex["ai_cs_re"]), re.compile(lex["ai_re"], re.I)
     sports = re.compile(lex["sports_re"], re.I)
     kept, drop = [], Counter()
     for it in items:
@@ -24,8 +29,26 @@ def clean(items: list[Item], lex: dict, section: str = "daily") -> tuple[list[It
         if commercial.search(text):
             drop["商业推广"] += 1
             continue
-        if explicit.search(text):
-            drop["露骨内容"] += 1
+        if section == "adult":
+            if adult_explicit.search(text):
+                drop["成人栏边界过滤"] += 1
+                continue
+            kept.append(it)
+            continue
+        if ncii.search(text):
+            drop["未经同意的私密影像"] += 1
+            continue
+        if section == "chart":
+            if filters.get("politics", True) and politics.search(it.title):
+                drop["政治"] += 1
+                continue
+            kept.append(it)
+            continue
+        if filters.get("politics", True) and politics.search(text):
+            drop["政治"] += 1
+            continue
+        if filters.get("ai_tech", True) and (ai_cs.search(text) or ai_ci.search(text)):
+            drop["AI科技"] += 1
             continue
         if section == "daily" and sports.search(text):
             it.flags.append("sports")
@@ -128,7 +151,7 @@ def score(items: list[Item], cfg_by_id: dict, now: dt.datetime) -> None:
 
 
 # ───────────────────────── 选取（含配额） ─────────────────────────
-def select_daily(items: list[Item], settings: dict, themes: dict | None = None) -> tuple[list[Item], dict]:
+def select_daily(items: list[Item], settings: dict, themes: dict | None = None, reserve: int = 0) -> tuple[list[Item], dict]:
     """按分数贪心选取，受配额约束：单源上限、新闻类总上限、体育上限、国内最小/最大条数。
     条数不足不凑数：低于 daily_total 就少发，并在报告里说明缺口。"""
     t, caps = settings["targets"], settings["caps"]
@@ -136,7 +159,7 @@ def select_daily(items: list[Item], settings: dict, themes: dict | None = None) 
     ranked = sorted(items, key=lambda i: -i.score)
     chosen: list[Item] = []
     cnt_src, cnt_news, cnt_sports = Counter(), 0, 0
-    cn_max, total = t["cn_max"], t["daily_total"]
+    cn_max, total = t["cn_max"] + (reserve // 3), t["daily_total"] + reserve
 
     def ok(it: Item) -> bool:
         if cnt_src[it.source] >= per_src.get(it.source, per_src["default"]):
@@ -170,10 +193,10 @@ def select_daily(items: list[Item], settings: dict, themes: dict | None = None) 
     chosen.sort(key=lambda i: -i.score)
     gaps = {
         "selected": len(chosen),
-        "target": total,
+        "target": total - reserve,
         "cn": sum(1 for c in chosen if c.region == "cn"),
         "cn_min": t["cn_min"],
-        "short_by": max(0, total - len(chosen)),
+        "short_by": max(0, total - reserve - len(chosen)),
     }
     return chosen, gaps
 

@@ -75,26 +75,34 @@ def render_daily(date: str, intro: str, items: list[Item], limit: int) -> list[t
     return out
 
 
-def render_screen(date: str, items: list[Item], limit: int) -> list[tuple[str, str]]:
+def render_charts(date: str, items: list[Item], limit: int) -> list[tuple[str, str]]:
+    """影视与短剧榜单：按榜单分组，每个榜单一个区块。"""
     if not items:
         return []
-    head = (f"<b>🎬 织光内容雷达｜影视日榜</b>\n{esc(date_label(date))}\n"
-            f"<i>依据 TMDB 站内日趋势热度排序，不是票房或收视榜。</i>")
+    head = f"<b>📊 织光内容雷达｜影视与短剧榜单</b>\n{esc(date_label(date))}"
+    boards: dict[str, list[Item]] = {}
+    for it in items:
+        boards.setdefault(it.extra.get("board", it.source_name), []).append(it)
     blocks = []
-    for label, media in (("电影", "movie"), ("剧集", "tv")):
-        rows = sorted([i for i in items if i.extra.get("media") == media], key=lambda x: x.rank or 99)
-        if not rows:
-            continue
-        lines = [f"<b>{label} Top {len(rows)}</b>"]
+    for name, rows in boards.items():
+        rows = sorted(rows, key=lambda x: x.rank or 99)
+        note = rows[0].extra.get("board_note", "")
+        lines = [f"<b>{esc(name)} Top {len(rows)}</b>" + (f"　<i>{esc(note)}</i>" if note else "")]
         for it in rows:
-            orig = it.extra.get("original_title", "")
-            name = esc(it.title_zh or it.title) + (f"（{esc(orig)}）" if orig and orig != (it.title_zh or "") else "")
-            lines.append(f'{it.rank}. <a href="{esc(it.url)}">{name}</a>')
-            if it.summary_zh:
+            zh = it.title_zh or it.title
+            orig = it.extra.get("original_title") or (it.title if it.title != zh else "")
+            label = esc(zh) + (f"（{esc(orig)}）" if orig and orig != zh else "")
+            sub = it.extra.get("subtitle", "")
+            extra = " · ".join(x for x in (esc(sub) if sub and sub not in (it.summary_zh or "") else "", esc(it.heat_text)) if x)
+            lines.append(f'{it.rank}. <a href="{esc(it.url)}">{label}</a>' + (f" <i>{extra}</i>" if extra else ""))
+            if it.summary_zh and it.summary_zh != sub:
                 lines.append("　" + esc(it.summary_zh))
         blocks.append("\n".join(lines))
-    blocks.append("<i>This product uses the TMDB API but is not endorsed or certified by TMDB.</i>")
-    return [(f"screen#{k}", m) for k, m in enumerate(pack(head, blocks, limit), 1)]
+    foot = ["榜单数据来自 JustWatch、豆瓣、短剧工程等第三方公开页面，口径各异，名次不可跨榜比较。"]
+    if any(i.source.startswith("tmdb") for i in items):
+        foot.append("This product uses the TMDB API but is not endorsed or certified by TMDB.")
+    blocks.append("<i>" + " ".join(esc(x) for x in foot) + "</i>")
+    return [(f"charts#{k}", m) for k, m in enumerate(pack(head, blocks, limit, "<b>📊 影视与短剧榜单（续）</b>"), 1)]
 
 
 def render_adult(date: str, items: list[Item], limit: int) -> list[tuple[str, str]]:

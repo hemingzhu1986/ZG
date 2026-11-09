@@ -20,8 +20,10 @@ def _run_one(cfg: dict, ctx, reg: dict) -> SourceResult:
         res.status, res.error = "skipped", str(e)
     except S.Stale as e:
         res.status, res.error = "stale", str(e)
+    except S.ParseError as e:
+        res.status, res.error, res.sample = "error", f"格式异常：{e}", e.sample
     except FetchError as e:
-        res.status, res.error = "error", f"{e}"
+        res.status, res.error, res.sample = "error", f"{e}", (e.body or "")[:300]
     except Exception as e:                                   # 解析错误等，只记录类型，不泄露 URL/密钥
         res.status, res.error = "error", type(e).__name__
     res.secs = round(time.time() - t0, 1)
