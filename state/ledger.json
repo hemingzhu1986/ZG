@@ -49,5 +49,33 @@
       "status": "sent",
       "ts": "2026-11-09T02:48:14.954402+00:00"
     }
+  },
+  "2026-11-10": {
+    "_complete_daily": true,
+    "charts#1": {
+      "message_id": 16,
+      "status": "sent",
+      "ts": "2026-11-10T03:05:37.864209+00:00"
+    },
+    "charts#2": {
+      "message_id": 17,
+      "status": "sent",
+      "ts": "2026-11-10T03:05:39.618260+00:00"
+    },
+    "daily_cn#1": {
+      "message_id": 15,
+      "status": "sent",
+      "ts": "2026-11-10T03:05:36.009850+00:00"
+    },
+    "daily_intl#1": {
+      "message_id": 14,
+      "status": "sent",
+      "ts": "2026-11-10T03:05:35.404925+00:00"
+    },
+    "drama#1": {
+      "message_id": 30,
+      "status": "sent",
+      "ts": "2026-11-10T03:05:41.333030+00:00"
+    }
   }
 }
