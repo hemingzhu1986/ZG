@@ -22,14 +22,24 @@ def hashtag(t: str) -> str:
     return "#" + t.replace("·", "").replace(" ", "")
 
 
-def item_block(n: int, it: Item) -> str:
+def _pub_date(it: Item) -> str:
+    try:
+        d = dt.datetime.fromisoformat(it.published)
+        return f"{d.month}/{d.day}发布"
+    except (ValueError, TypeError):
+        return ""
+
+
+def item_block(n: int, it: Item, show_source: bool = True) -> str:
     title = esc(it.title_zh or it.title)
     lines = [f'{n}. <b><a href="{esc(it.url)}">{title}</a></b>']
     if it.summary_zh:
         lines.append(esc(it.summary_zh))
-    foot = [esc(it.source_name)]
+    foot = [esc(it.source_name)] if show_source else []      # 渠道消息的标题里已有渠道名，不再重复
     if it.heat_text:
         foot.append(esc(it.heat_text))
+    elif not show_source and _pub_date(it):
+        foot.append(_pub_date(it))
     if it.also_in:
         foot.append("另见：" + esc("、".join(it.also_in[:2])))
     mark = []
@@ -58,36 +68,50 @@ def pack(header: str, blocks: list[str], limit: int, cont_header: str = "") -> l
 
 
 # ───────────────────────── 各栏目 ─────────────────────────
-def render_daily(date: str, intro: str, items: list[Item], limit: int) -> list[tuple[str, str]]:
-    intl = [i for i in items if i.region != "cn"]
-    cn = [i for i in items if i.region == "cn"]
-    out: list[tuple[str, str]] = []
-    if intl:
-        head = (f"<b>🌍 织光内容雷达｜每日精选 · 国际</b>\n{esc(date_label(date))}\n"
-                f"<b>今日简介</b>：{esc(intro)}")
-        msgs = pack(head, [item_block(n, it) for n, it in enumerate(intl, 1)], limit,
-                    f"<b>🌍 每日精选 · 国际（续）</b>")
-        out += [(f"daily_intl#{k}", m) for k, m in enumerate(msgs, 1)]
-    if cn:
-        head = f"<b>🇨🇳 织光内容雷达｜每日精选 · 国内</b>\n{esc(date_label(date))}"
-        msgs = pack(head, [item_block(n, it) for n, it in enumerate(cn, 1)], limit, "<b>🇨🇳 每日精选 · 国内（续）</b>")
-        out += [(f"daily_cn#{k}", m) for k, m in enumerate(msgs, 1)]
-    return out
+def _head(date: str, meta: dict) -> str:
+    title = meta.get("title") or f"{meta['channel']}资讯"
+    note = meta.get("note", "")
+    return (f"<b>{meta.get('emoji', '📰')} {esc(title)}</b>\n{esc(date_label(date))}"
+            + (f"\n<i>{esc(note)}</i>" if note else ""))
 
 
-def render_charts(date: str, items: list[Item], limit: int) -> list[tuple[str, str]]:
-    """影视与短剧榜单：按榜单分组，每个榜单一个区块。"""
+def fit_one(head: str, blocks: list[str], limit: int, tail: str = "") -> tuple[str, int]:
+    """把尽可能多的整条内容放进**一条**消息（不拆成多条，也不在条目中间截断）。
+    放不下的低排名条目被舍弃，返回（消息文本, 实际放入条数）。"""
+    text, n = head, 0
+    reserve = (utf16_len(tail) + 2) if tail else 0
+    for b in blocks:
+        if n == 0 and utf16_len(head) + utf16_len(b) + 2 + reserve > limit:
+            b = trunc(b, max(200, limit - utf16_len(head) - reserve - 10))
+        trial = text + "\n\n" + b
+        if utf16_len(trial) + reserve > limit:
+            break
+        text, n = trial, n + 1
+    if tail:
+        text += "\n\n" + tail
+    return text, n
+
+
+def render_channel(date: str, meta: dict, items: list[Item], limit: int) -> tuple[str, str, int]:
+    """一个渠道一条消息。返回（key, 文本, 实际条数）。"""
     if not items:
-        return []
-    head = f"<b>📊 织光内容雷达｜影视与短剧榜单</b>\n{esc(date_label(date))}"
+        return meta["key"], "", 0
+    text, n = fit_one(_head(date, meta), [item_block(i, it, show_source=False) for i, it in enumerate(items, 1)], limit)
+    return meta["key"], text, n
+
+
+def render_chart_channel(date: str, meta: dict, items: list[Item], limit: int) -> tuple[str, str, int]:
+    """榜单类渠道：一条消息，内部按榜单（如电影/剧集）分组。"""
+    if not items:
+        return meta["key"], "", 0
     boards: dict[str, list[Item]] = {}
-    for it in items:
+    for it in sorted(items, key=lambda i: (i.extra.get("board_order", 9), i.rank or 99)):
         boards.setdefault(it.extra.get("board", it.source_name), []).append(it)
-    blocks = []
+    blocks, shown = [], 0
     for name, rows in boards.items():
         rows = sorted(rows, key=lambda x: x.rank or 99)
         note = rows[0].extra.get("board_note", "")
-        lines = [f"<b>{esc(name)} Top {len(rows)}</b>" + (f"　<i>{esc(note)}</i>" if note else "")]
+        lines = [f"<b>{esc(name)}</b>" + (f"　<i>{esc(note)}</i>" if note else "")]
         for it in rows:
             zh = it.title_zh or it.title
             orig = it.extra.get("original_title") or (it.title if it.title != zh else "")
@@ -97,21 +121,23 @@ def render_charts(date: str, items: list[Item], limit: int) -> list[tuple[str, s
             lines.append(f'{it.rank}. <a href="{esc(it.url)}">{label}</a>' + (f" <i>{extra}</i>" if extra else ""))
             if it.summary_zh and it.summary_zh != sub:
                 lines.append("　" + esc(it.summary_zh))
+            shown += 1
         blocks.append("\n".join(lines))
-    foot = ["榜单数据来自 JustWatch、豆瓣、短剧工程等第三方公开页面，口径各异，名次不可跨榜比较。"]
+    foot = ["榜单口径各异，名次不可跨榜比较。"]
     if any(i.source.startswith("tmdb") for i in items):
         foot.append("This product uses the TMDB API but is not endorsed or certified by TMDB.")
-    blocks.append("<i>" + " ".join(esc(x) for x in foot) + "</i>")
-    return [(f"charts#{k}", m) for k, m in enumerate(pack(head, blocks, limit, "<b>📊 影视与短剧榜单（续）</b>"), 1)]
+    text, n = fit_one(_head(date, meta), blocks, limit, "<i>" + " ".join(esc(x) for x in foot) + "</i>")
+    return meta["key"], text, shown
 
 
-def render_adult(date: str, items: list[Item], limit: int) -> list[tuple[str, str]]:
+def render_adult(date: str, meta: dict, items: list[Item], limit: int) -> tuple[str, str, int]:
+    """成人平台行业观察：一条消息；只含非露骨的行业、监管与研究类报道。"""
     if not items:
-        return []
-    head = (f"<b>🔎 织光内容雷达｜成人平台行业观察</b>\n{esc(date_label(date))}\n"
+        return meta["key"], "", 0
+    head = (f"<b>{meta.get('emoji', '🔎')} {esc(meta.get('title') or meta['channel'])}</b>\n{esc(date_label(date))}\n"
             f"<i>仅收录主流媒体的非露骨行业、监管与研究类报道；不提供内容榜单、演员信息或观看入口。</i>")
-    msgs = pack(head, [item_block(n, it) for n, it in enumerate(items, 1)], limit)
-    return [(f"adult#{k}", m) for k, m in enumerate(msgs, 1)]
+    text, n = fit_one(head, [item_block(i, it, show_source=False) for i, it in enumerate(items, 1)], limit)
+    return meta["key"], text, n
 
 
 def _drama_basis(c: dict, by_id: dict) -> str:

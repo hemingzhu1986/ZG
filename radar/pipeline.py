@@ -9,13 +9,15 @@ from . import editor as E
 from . import process as P
 from . import render as R
 from .article import attach_bodies
+from .channels import assign_channels, channel_meta, group_by_channel
 from .collect import collect
 from .models import Item
+from .process import select_channel
 from .sources import Ctx
 from .text import similar
 
 KEEP = ("id", "title", "url", "source", "source_name", "region", "kind", "section", "rank", "heat_text", "title_zh",
-        "summary_zh", "tags", "drama_signal", "score", "also_in", "flags", "published")
+        "summary_zh", "tags", "drama_signal", "score", "also_in", "flags", "published", "channel")
 
 
 def compact(it: Item) -> dict:
@@ -35,6 +37,7 @@ class Edition:
     enrich_stats: dict = field(default_factory=dict)
     drama_cards: list = field(default_factory=list)
     notes: list = field(default_factory=list)
+    channels: list = field(default_factory=list)     # 各渠道展示条数
     preview_parts: list = field(default_factory=list)   # 未配置目标群时，仍写入预览/归档
 
 
@@ -52,96 +55,113 @@ def _parts(rendered, chat, silent_after_first=True) -> list[dict]:
 
 def build_daily(date: str, now_utc: dt.datetime, settings, sources_cfg, lex, env, llm, translator, history,
                 inbox_items=None, override: dict | None = None, log=print) -> Edition:
+    """每个渠道一条消息：谷歌趋势、维基百科、微博热搜……各发各的，不混在一起。"""
     ed = Edition("daily", date)
     cfg_by_id = {c["id"]: c for c in sources_cfg}
     limit = settings["telegram"]["message_limit"]
     chats = _chat_ids(env, settings)
     dd, flt = settings["dedupe"], settings.get("filters", {})
-    total, reserve = settings["targets"]["daily_total"], settings["targets"].get("reserve", 10)
+    llm_on = llm is not None and getattr(llm, "available", False)
+    reserve = settings.get("channels", {}).get("reserve", 2) if llm_on else 0     # 备选：大模型二次判定政治/AI 后补位
+    max_sports = settings["caps"].get("max_sports", 1)
 
+    # ── 1) 得到“每个渠道的入选条目” ──
+    groups: dict[str, list[Item]] = {}
     if override is not None:                                   # 离线演示/测试：直接使用给定条目
-        selected = [Item.from_dict(d) for d in override.get("daily", [])]
-        pool = list(selected)
-        charts = [Item.from_dict(d) for d in override.get("chart", [])]
-        adult = [Item.from_dict(d) for d in override.get("adult", [])]
+        allitems = [Item.from_dict(d) for k in ("daily", "chart", "adult") for d in override.get(k, [])]
+        assign_channels(allitems, cfg_by_id)
+        groups = group_by_channel(allitems)
+        show_of = {n: 999 for n in groups}
     else:
         ed.results = collect(sources_cfg, Ctx(now=now_utc, env=env, settings=settings))
         raw = [it for r in ed.results for it in r.items] + list(inbox_items or [])
+        assign_channels(raw, cfg_by_id)
         sec = {"daily": [], "chart": [], "adult": []}
         for it in raw:
             sec.setdefault(it.section, []).append(it)
         daily, ed.drops = P.clean(sec["daily"], lex, "daily", flt)
-        daily = P.dedupe(daily, dd["title_similarity"])
+        P.corroborate(daily, dd["title_similarity"])
         P.score(daily, cfg_by_id, now_utc)
         recent = history.recent(date, dd["repeat_window_days"])
-        daily, rep = P.drop_recent_repeats(daily, recent, dd["repeat_window_days"], dd["repeat_score_gain"])
-        if rep:
-            ed.drops["近3天重复"] = rep
-        pool, ed.gaps = P.select_daily(daily, settings, reserve=reserve)      # 多选一批备选，供二次判定后补位
-        # 榜单：同样屏蔽政治/AI 科技话题；按“榜单顺序、名次”排列
+        rep_total = 0
+        for name, rows in group_by_channel(daily).items():
+            meta = channel_meta(name, sources_cfg)
+            rows = P.dedupe(rows, dd["title_similarity"])
+            rows, rep = P.drop_recent_repeats(rows, recent, dd["repeat_window_days"], dd["repeat_score_gain"])
+            rep_total += rep
+            groups[name] = select_channel(rows, meta["show"] + reserve, max_sports)
+        if rep_total:
+            ed.drops["近3天重复"] = rep_total
         if settings.get("chart", {}).get("enabled", True):
             charts, cd = P.clean(sec["chart"], lex, "chart", flt)
             for k, v in cd.items():
                 ed.drops[k] = ed.drops.get(k, 0) + v
-            charts.sort(key=lambda i: (i.extra.get("board_order", 9), i.extra.get("board", ""), i.rank or 99))
-        else:
-            charts = []
-        # 成人平台行业栏：只收主流媒体的非露骨报道；14 天内不重复；无内容不发
-        adult = []
+            for name, rows in group_by_channel(charts).items():
+                groups[name] = rows
         if settings["adult"]["enabled"]:
             a, d2 = P.clean(sec["adult"], lex, "adult")
             for k, v in d2.items():
                 ed.drops[k] = ed.drops.get(k, 0) + v
-            a = P.dedupe(a, dd["title_similarity"])
-            a.sort(key=lambda x: x.published, reverse=True)
-            a, _ = P.drop_recent_repeats(a, history.recent(date, 14), 14, 99)
-            adult = a[: settings["adult"]["max_items"]]
+            for name, rows in group_by_channel(P.dedupe(a, dd["title_similarity"])).items():
+                rows.sort(key=lambda x: x.published, reverse=True)
+                rows, _ = P.drop_recent_repeats(rows, history.recent(date, 14), 14, 99)
+                groups[name] = rows[: settings["adult"]["max_items"]]
+        show_of = {n: channel_meta(n, sources_cfg)["show"] for n in groups}
         # 抓正文片段，作为写“更长简介”的输入（失败静默；只作输入，不存档）
-        got = attach_bodies(pool + adult)
-        ed.notes.append(f"正文抓取成功 {got}/{len(pool) + len(adult)} 条")
+        pool = [i for rows in groups.values() for i in rows if i.section in ("daily", "adult")]
+        got = attach_bodies(pool)
+        ed.notes.append(f"正文抓取成功 {got}/{len(pool)} 条")
 
-    everything = pool + charts + adult
+    # ── 2) 编辑加工：翻译成中文、写简介 ──
+    everything = [i for rows in groups.values() for i in rows]
     ed.enrich_stats = E.enrich(everything, llm, translator, lex, settings, log)
 
-    if override is None:
-        # 二次判定：大模型把内容归为政治/AI科技的，从备选里剔除并补位
-        bad = [i for i in pool if i.extra.get("topic") in E.BLOCKED_TOPICS]
+    # ── 3) 大模型二次判定政治/AI 科技 → 剔除并补位；再截到各渠道的展示条数 ──
+    for name, rows in list(groups.items()):
+        bad = [i for i in rows if i.extra.get("topic") in E.BLOCKED_TOPICS]
         for i in bad:
             key = "政治(AI判定)" if i.extra["topic"] == "politics" else "AI科技(AI判定)"
             ed.drops[key] = ed.drops.get(key, 0) + 1
-        pool = [i for i in pool if i not in bad]
-        selected = pool[:total]
-        ed.gaps.update({"selected": len(selected), "target": total,
-                        "cn": sum(1 for i in selected if i.region == "cn"),
-                        "short_by": max(0, total - len(selected))})
-    else:
-        ed.gaps = {"selected": len(selected), "target": total, "cn": sum(1 for i in selected if i.region == "cn"),
-                   "cn_min": settings["targets"]["cn_min"], "short_by": max(0, total - len(selected))}
+        groups[name] = [i for i in rows if i not in bad][: show_of[name]]
 
-    intro = E.overview(selected, llm, date, log)
-    # AI 短剧选题
+    # ── 4) AI 短剧选题：从所有日报渠道的入选热点里挑 ──
     k = settings["targets"]["drama_picks"]
-    picks = D.pick_candidates(selected, lex, k)
+    news_items = [i for rows in groups.values() for i in rows if i.section == "daily"]
+    picks = D.pick_candidates(news_items, lex, k)
     if override is not None and override.get("drama_cards"):
-        valid = {i.id for i in selected}
+        valid = {i.id for i in news_items}
         cards = [D.validate_card(dict(c), valid) for c in override["drama_cards"]]
     else:
         cards = D.generate(picks, llm, k, log) or D.material_cards(picks, lex)
     ed.drama_cards = cards
 
-    ed.items = selected + charts + adult
-    parts = _parts(R.render_daily(date, intro, selected, limit), chats["main"])
-    parts += _parts(R.render_charts(date, charts, limit), chats["main"])
-    parts += _parts(R.render_adult(date, adult, limit), chats["main"])
-    drama_parts = _parts(R.render_drama(date, cards, selected, limit), chats["drama"])
+    # ── 5) 渲染：一个渠道一条消息，按渠道顺序发送 ──
+    metas = sorted((channel_meta(n, sources_cfg) for n in groups), key=lambda m: m["channel_order"])
+    parts, cstats = [], []
+    for meta in metas:
+        rows = groups.get(meta["channel"], [])
+        if not rows:
+            cstats.append({"name": meta["channel"], "shown": 0})
+            continue
+        is_chart = all(i.section == "chart" for i in rows)
+        is_adult = all(i.section == "adult" for i in rows)
+        fn = R.render_chart_channel if is_chart else (R.render_adult if is_adult else R.render_channel)
+        key, text, shown = fn(date, meta, rows, limit)
+        cstats.append({"name": meta["channel"], "shown": shown})
+        if text:
+            parts.append({"key": key, "chat_id": chats["main"], "text": text, "silent": bool(parts), "label": meta["channel"]})
+    ed.channels = cstats
+    ed.items = [i for rows in groups.values() for i in rows]
+    drama_parts = _parts(R.render_drama(date, cards, news_items, limit), chats["drama"])
     ed.preview_parts = drama_parts
     if chats["drama"]:
         parts += drama_parts
     else:
         ed.notes.append("ℹ️ 未设置 DRAMA_CHAT_ID / ADMIN_CHAT_ID，今日短剧选题只保存到 archive，未发送。")
     ed.parts = parts
-    ed.notes.append(f"榜单：{len(charts)} 条｜成人栏：{len(adult)} 条｜短剧选题：{len(cards)} 则"
-                    f"（{'完整卡' if cards and cards[0].get('mode') == 'full' else '素材候选'}）")
+    ed.gaps = {"selected": sum(c["shown"] for c in cstats), "channels": sum(1 for c in cstats if c["shown"]),
+               "empty": [c["name"] for c in cstats if not c["shown"]]}
+    ed.notes.append(f"短剧选题：{len(cards)} 则（{'完整卡' if cards and cards[0].get('mode') == 'full' else '素材候选'}）")
     return ed
 
 
@@ -162,11 +182,9 @@ def build_weekly(date: str, now_utc: dt.datetime, settings, lex, env, llm, histo
         if it.region != "cn" and len(picked) - cn_n >= 20:
             continue
         picked.append(it)
-        if len(picked) >= settings["targets"]["daily_total"]:
+        if len(picked) >= 25:
             break
-    ed.gaps = {"selected": len(picked), "target": settings["targets"]["daily_total"],
-               "cn": sum(1 for i in picked if i.region == "cn"), "cn_min": 0,
-               "short_by": max(0, settings["targets"]["daily_total"] - len(picked))}
+    ed.gaps = {"selected": len(picked), "channels": 0, "empty": []}
     tags = Counter(t for it in picked for t in it.tags)
     intro = E.overview(picked, llm, date, log, period="本周") if picked else "本周暂无已发布记录。"
     lines = []

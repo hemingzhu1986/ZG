@@ -2,6 +2,80 @@
   "date": "2026-11-04",
   "daily": [
     {
+      "id": "95d9a2093f9e",
+      "title": "帕特里克·斯图尔特（Patrick Stewart）去世，享年 86 岁",
+      "url": "https://apnews.com/article/8b38054ff74d4187a32158d78e345ad7",
+      "source": "google_trends_us",
+      "source_name": "谷歌趋势·美国",
+      "region": "intl",
+      "kind": "trend",
+      "section": "daily",
+      "rank": null,
+      "heat_text": "谷歌搜索量200万+（24小时）",
+      "title_zh": "帕特里克·斯图尔特（Patrick Stewart）去世，享年 86 岁",
+      "summary_zh": "演员帕特里克·斯图尔特去世，享年 86 岁，消息已获美联社与路透社报道确认。他既是《X战警》系列里的 X 教授，也是《星际迷航》中的皮卡德舰长。消息传出后，同事的悼念与经典片段一起被广泛转发，他的名字在谷歌美国 24 小时热搜中的搜索量超过 200 万。",
+      "tags": [
+        "影视综艺"
+      ],
+      "drama_signal": "",
+      "score": 0.97,
+      "also_in": [
+        "维基百科"
+      ],
+      "flags": [],
+      "published": "2026-11-04T01:00:00+00:00",
+      "extra": {}
+    },
+    {
+      "id": "0c255805f4b1",
+      "title": "埃里克·鲍扎（Eric Bauza）去世，兔八哥配音演员终年 46 岁",
+      "url": "https://apnews.com/article/8c1734613618286e454bd6cc17718b82",
+      "source": "google_trends_us",
+      "source_name": "谷歌趋势·美国",
+      "region": "intl",
+      "kind": "trend",
+      "section": "daily",
+      "rank": null,
+      "heat_text": "谷歌搜索量20万+（24小时）",
+      "title_zh": "埃里克·鲍扎（Eric Bauza）去世，兔八哥配音演员终年 46 岁",
+      "summary_zh": "埃里克·鲍扎的家属宣布他去世，终年 46 岁。他是近年为兔八哥、达菲鸭等《乐一通》角色配音的演员，消息传出后进入美国热搜，网友纷纷怀念这些熟悉的童年声音，也让更多人开始关注动画角色背后的配音演员。",
+      "tags": [
+        "影视综艺",
+        "怀旧"
+      ],
+      "drama_signal": "",
+      "score": 0.8,
+      "also_in": [],
+      "flags": [],
+      "published": "2026-11-04T01:00:00+00:00",
+      "extra": {}
+    },
+    {
+      "id": "75001c88b6bd",
+      "title": "帕特里克·斯图尔特（Patrick Stewart）",
+      "url": "https://en.wikipedia.org/wiki/Patrick_Stewart",
+      "source": "wikipedia_top_en",
+      "source_name": "维基百科英文版·日浏览榜",
+      "region": "intl",
+      "kind": "rank",
+      "section": "daily",
+      "rank": 2,
+      "heat_text": "维基百科热门词条",
+      "title_zh": "帕特里克·斯图尔特（Patrick Stewart）",
+      "summary_zh": "英国演员，以《星际迷航：下一代》中的皮卡德舰长和《X战警》系列中的 X 教授闻名。他的维基百科词条浏览量在其去世消息公布后大幅上升。",
+      "tags": [
+        "影视综艺"
+      ],
+      "drama_signal": "",
+      "score": 0.9,
+      "also_in": [
+        "谷歌趋势"
+      ],
+      "flags": [],
+      "published": "2026-11-04T01:00:00+00:00",
+      "extra": {}
+    },
+    {
       "id": "5f9fe9f037cb",
       "title": "双人「最后一支舞」：从动画角色跳到真人搭档",
       "url": "https://trending.knowyourmeme.com/editorials/guides/what-is-the-last-dance-trend-on-tiktok-the-maretu-song-fpd-ff7-botsu-8-and-animation-memes-explained",

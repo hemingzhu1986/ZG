@@ -180,14 +180,6 @@ class ProcessTests(unittest.TestCase):
                                                     "Sex scene in new film sparks debate"])
         self.assertEqual(drops, {"商业推广": 1, "未经同意的私密影像": 1})
 
-    def test_dedupe_merges_sources(self):
-        a = mk("Patrick Stewart dies at 86", src="google", kind="trend", metrics={"traffic": 2_000_000}, url="https://a.com/1")
-        b = mk("Patrick Stewart dead at age 86", src="thr", kind="news", url="https://b.com/2", desc="longer description here")
-        out = P.dedupe([a, b])
-        self.assertEqual(len(out), 1)
-        self.assertEqual(out[0].source, "google")
-        self.assertEqual(out[0].also_in, ["thr"])
-
     def test_corroboration_raises_score(self):
         a = mk("Alpha story", src="x", kind="trend", metrics={"traffic": 100_000})
         b = mk("Alpha story", src="x", kind="trend", metrics={"traffic": 100_000}, url="https://other.com/b")
@@ -204,45 +196,6 @@ class ProcessTests(unittest.TestCase):
         self.assertEqual([i.title for i in kept], ["Hot comeback"])
         self.assertIn("follow_up", kept[0].flags)
         self.assertEqual(dropped, 1)
-
-    def test_select_caps_and_cn_floor(self):
-        settings = config.load_settings()
-        settings["targets"].update({"daily_total": 12, "cn_min": 3, "cn_max": 5})
-        items = [mk(f"reddit story {i}", src="reddit_popculture", metrics={}, rank=i + 1) for i in range(10)]
-        items += [mk(f"cn story {i}", src="bilibili_ranking", region="cn", kind="rank", rank=40 + i) for i in range(4)]
-        items += [mk(f"NFL game {i} vs team", src="google_trends_us", kind="trend", metrics={"traffic": 5_000_000}) for i in range(4)]
-        for it in items:
-            if "NFL" in it.title:
-                it.flags.append("sports")
-        P.score(items, {}, NOW)
-        chosen, gaps = P.select_daily(items, settings)
-        self.assertLessEqual(sum(i.source == "reddit_popculture" for i in chosen), 4)   # 单源上限
-        self.assertLessEqual(sum("sports" in i.flags for i in chosen), 1)               # 体育上限
-        self.assertGreaterEqual(gaps["cn"], 3)                                          # 国内保底
-        self.assertEqual(gaps["selected"], len(chosen))
-
-
-class RenderTests(unittest.TestCase):
-    def test_pack_never_splits_items_and_respects_limit(self):
-        items = []
-        for i in range(30):
-            it = mk(f"标题{i}", url=f"https://e.com/{i}")
-            it.title_zh, it.summary_zh = f"标题{i}", "简介" * 40
-            items.append(it)
-        msgs = R.render_daily("2026-11-05", "简介", items, 1500)
-        self.assertGreater(len(msgs), 1)
-        for _, m in msgs:
-            self.assertLessEqual(utf16_len(m), 1500)
-        joined = "\n".join(m for _, m in msgs)
-        for i in range(30):
-            self.assertEqual(joined.count(f"https://e.com/{i}\""), 1)      # 每条恰好出现一次
-
-    def test_html_is_escaped(self):
-        it = mk("x"); it.title_zh = "<script>&"; it.summary_zh = "a<b"
-        _, m = R.render_daily("2026-11-05", "i", [it], 3800)[0]
-        self.assertNotIn("<script>", m)
-        self.assertIn("&lt;script&gt;&amp;", m)
-
 
 class PublishTests(unittest.TestCase):
     class FakeTG:
@@ -439,27 +392,6 @@ class LLMEditorDramaTests(unittest.TestCase):
         self.assertEqual(len(set(mains)), 3)
 
 
-class ExampleBuildTests(unittest.TestCase):
-    def test_example_renders_within_limit(self):
-        data = json.loads((Path(__file__).resolve().parent.parent / "examples" / "items_2026-11-04.json").read_text("utf-8"))
-        settings = config.load_settings()
-        settings["free_translate"]["enabled"] = False
-        from radar.pipeline import build_daily
-        hist = state.History(Path(tempfile.mkdtemp()))
-        env = {"TELEGRAM_CHAT_ID": "-100", "DRAMA_CHAT_ID": "-200"}
-        ed = build_daily("2026-11-04", NOW, settings, config.load_sources(), LEX, env, None, None, hist, override=data,
-                         log=lambda *_: None)
-        keys = [p["key"] for p in ed.parts]
-        self.assertEqual(keys[:1] + keys[-4:], ["daily_intl#1", "charts#1", "adult#1", "drama#1"][:1] + keys[-4:])
-        self.assertIn("daily_cn#1", keys)
-        self.assertIn("charts#1", keys)
-        self.assertEqual(keys[-2:], ["adult#1", "drama#1"])
-        for p in ed.parts:
-            self.assertLessEqual(utf16_len(p["text"]), 3800)
-        self.assertEqual([p["chat_id"] for p in ed.parts][-1], "-200")      # 短剧发到独立群
-        self.assertNotIn("Variety", json.dumps(config.load_sources(), ensure_ascii=False))   # 已移除 Variety
-
-
 class RegressionTests(unittest.TestCase):
     def test_score_handles_naive_and_garbage_timestamps(self):
         """回归：维基条目的纯日期时间戳曾导致 TypeError，整条日报在发送前崩溃。"""
@@ -530,16 +462,6 @@ class RegressionTests(unittest.TestCase):
         self.assertIn("❌ main", out)
         self.assertIn("chat not found", out)
         self.assertIn("✅ admin", out)
-
-
-class TranslatorTests(unittest.TestCase):
-    def test_circuit_breaker_stops_after_three_failures(self):
-        from radar.translate import Translator
-        tr = Translator(True, 60, Path(tempfile.mkdtemp()) / "t.json")
-        with mock.patch.object(http, "fetch", side_effect=http.FetchError("timeout")) as f:
-            for i in range(10):
-                self.assertIsNone(tr.translate(f"English title number {i}"))
-        self.assertEqual(f.call_count, 3)               # 第 4 条起不再请求
 
 
 class NewSourceTests(unittest.TestCase):
@@ -759,19 +681,166 @@ class LongSummaryTests(unittest.TestCase):
         self.assertNotIn("body", b.extra)                          # reddit 等站点不抓正文
 
 
+class ChannelRenderTests(unittest.TestCase):
+    META = {"channel": "谷歌趋势", "emoji": "🔍", "key": "ch_g", "note": "按搜索量排序", "title": ""}
+
+    def items(self, n, summary="简介" * 40):
+        out = []
+        for i in range(n):
+            it = mk(f"标题{i}", url=f"https://e.com/{i}", src="google_trends_us")
+            it.title_zh, it.summary_zh, it.heat_text, it.source_name = f"标题{i}", summary, f"搜索量{i}万", "谷歌趋势·美国"
+            out.append(it)
+        return out
+
+    def test_title_is_channel_name_plus_zixun(self):
+        key, text, n = R.render_channel("2026-11-05", self.META, self.items(2), 3800)
+        self.assertIn("🔍 谷歌趋势资讯", text)
+        self.assertEqual((key, n), ("ch_g", 2))
+        self.assertNotIn("谷歌趋势·美国", text)                      # 来源名不再重复出现在每条里
+
+    def test_one_channel_is_always_one_message_dropping_overflow(self):
+        key, text, n = R.render_channel("2026-11-05", self.META, self.items(30), 1500)
+        self.assertLessEqual(utf16_len(text), 1500)
+        self.assertLess(n, 30)
+        self.assertEqual(text.count("<b>🔍 谷歌趋势资讯</b>"), 1)
+        for i in range(n):                                          # 放进去的每条都完整
+            self.assertEqual(text.count(f"https://e.com/{i}\""), 1)
+        self.assertNotIn(f"https://e.com/{n}\"", text)             # 放不下的整条舍弃，不截断
+
+    def test_empty_channel_sends_nothing(self):
+        self.assertEqual(R.render_channel("2026-11-05", self.META, [], 3800)[1], "")
+
+    def test_html_is_escaped(self):
+        it = self.items(1)[0]
+        it.title_zh, it.summary_zh = "<script>&", "a<b"
+        _, text, _ = R.render_channel("2026-11-05", self.META, [it], 3800)
+        self.assertNotIn("<script>", text)
+        self.assertIn("&lt;script&gt;&amp;", text)
+
+    def test_date_shown_when_no_heat(self):
+        it = self.items(1)[0]
+        it.heat_text, it.published = "", "2026-11-04T01:00:00+00:00"
+        self.assertIn("11/4发布", R.render_channel("2026-11-05", self.META, [it], 3800)[1])
+
+    def test_chart_channel_groups_boards_and_keeps_ai_format_labels(self):
+        data = json.loads((Path(__file__).resolve().parent.parent / "examples" / "items_2026-11-04.json").read_text("utf-8"))
+        jw = [Item.from_dict(d) for d in data["chart"] if d["source"] == "justwatch_us"]
+        dj = [Item.from_dict(d) for d in data["chart"] if d["source"] == "duanju_gongcheng"]
+        _, t1, _ = R.render_chart_channel("2026-11-04", {"channel": "JustWatch 美国影视榜", "emoji": "📊", "key": "ch_j", "note": ""}, jw, 3800)
+        self.assertIn("JustWatch US · 电影", t1)
+        self.assertIn("JustWatch US · 剧集", t1)
+        self.assertNotIn("抖音官方短剧日榜", t1)                      # 不同渠道不混在一条里
+        _, t2, _ = R.render_chart_channel("2026-11-04", {"channel": "抖音短剧日榜", "emoji": "🎞", "key": "ch_d", "note": ""}, dj, 3800)
+        self.assertIn("AI短剧", t2)
+        self.assertNotIn("TMDB API", t2)
+        t3 = Item.from_dict(dict(data["chart"][0], source="tmdb_movies"))
+        self.assertIn("TMDB API", R.render_chart_channel("2026-11-04", {"channel": "x", "emoji": "", "key": "k", "note": ""}, [t3], 3800)[1])
+
+
+class ChannelLogicTests(unittest.TestCase):
+    def test_fallback_sources_merge_into_one_channel(self):
+        from radar import channels as CH
+        cfgs = config.load_sources()
+        self.assertEqual(CH.channel_of({"name": "微博·热搜（聚合站备用）"}), "微博·热搜")      # 无 channel 字段时：去掉括号备注
+        weibo = {c["id"] for c in cfgs if CH.channel_of(c) == "微博热搜"}
+        self.assertEqual(weibo, {"weibo_hot", "weibo_tophub", "weibo_rsshub"})
+        meta = CH.channel_meta("微博热搜", cfgs)
+        self.assertEqual(meta["key"], "ch_weibo_hot")                 # 以主源为准
+
+    def test_every_source_has_channel_settings_and_keys_are_unique(self):
+        from radar import channels as CH
+        cfgs = config.load_sources()
+        names = {CH.channel_of(c) for c in cfgs}
+        keys = {CH.channel_meta(n, cfgs)["key"] for n in names}
+        self.assertEqual(len(keys), len(names))
+        for c in cfgs:
+            self.assertIn("show", c, c["id"])
+            self.assertIn("emoji", c, c["id"])
+
+    def test_order_by_platform_rank_or_score(self):
+        from radar import channels as CH
+        a, b, c = mk("a", rank=3), mk("b", rank=1), mk("c", rank=2)
+        self.assertEqual([i.title for i in CH.order_items([a, b, c])], ["b", "c", "a"])
+        x, y = mk("x"), mk("y"); x.score, y.score = 0.2, 0.9
+        self.assertEqual([i.title for i in CH.order_items([x, y])], ["y", "x"])
+
+    def test_select_channel_limits_count_and_sports(self):
+        rows = [mk(f"story {i}", rank=i + 1) for i in range(10)]
+        rows[0].flags.append("sports"); rows[1].flags.append("sports")
+        got = P.select_channel(rows, 5, max_sports=1)
+        self.assertEqual(len(got), 5)
+        self.assertEqual(sum("sports" in i.flags for i in got), 1)
+        self.assertEqual(got[0].title, "story 0")                     # 保持平台名次顺序
+
+    def test_dedupe_is_within_channel_and_corroborate_marks_other_channels(self):
+        a = mk("Patrick Stewart dies at 86", src="g", kind="trend", metrics={"traffic": 2_000_000}, url="https://a.com/1")
+        a2 = mk("Patrick Stewart dead at age 86", src="g", kind="trend", metrics={"traffic": 1_000}, url="https://a.com/2")
+        b = mk("Patrick Stewart dead at age 86", src="w", kind="rank", url="https://w.org/ps")
+        a.channel = a2.channel = "谷歌趋势"; b.channel = "维基百科"
+        self.assertEqual(len(P.dedupe([a, a2])), 1)                   # 同一渠道内重复只留一条
+        P.corroborate([a, b])
+        self.assertEqual(a.also_in, ["维基百科"])
+        self.assertEqual(b.also_in, ["谷歌趋势"])                      # 跨渠道：两边都保留，只标“另见”
+
+
+class ExampleBuildTests(unittest.TestCase):
+    def build(self, **env):
+        from radar.pipeline import build_daily
+        data = json.loads((Path(__file__).resolve().parent.parent / "examples" / "items_2026-11-04.json").read_text("utf-8"))
+        settings = config.load_settings()
+        settings["free_translate"]["enabled"] = False
+        hist = state.History(Path(tempfile.mkdtemp()))
+        e = {"TELEGRAM_CHAT_ID": "-100", "DRAMA_CHAT_ID": "-200", **env}
+        return build_daily("2026-11-04", NOW, settings, config.load_sources(), LEX, e, None, None, hist, override=data,
+                           log=lambda *_: None)
+
+    def test_each_channel_is_its_own_message(self):
+        ed = self.build()
+        labels = [p.get("label") for p in ed.parts if p.get("label")]
+        for want in ("谷歌趋势", "维基百科", "梗百科", "Reddit 流行文化", "Reddit 问答", "好莱坞报道者", "JustWatch 美国影视榜",
+                     "B站全站榜", "豆瓣榜单", "抖音短剧日榜", "成人平台行业观察"):
+            self.assertIn(want, labels)
+        self.assertEqual(len(labels), len(set(labels)))               # 一个渠道恰好一条
+        for p in ed.parts:
+            self.assertLessEqual(utf16_len(p["text"]), 3800)
+            if p.get("label") and p["label"] != "成人平台行业观察":
+                self.assertEqual(p["text"].count("资讯</b>"), 1, p["label"])    # 一条消息里只有一个渠道标题
+        google = next(p for p in ed.parts if p.get("label") == "谷歌趋势")["text"]
+        self.assertNotIn("维基百科资讯", google)
+        self.assertNotIn("Reddit", google)
+        self.assertEqual(ed.parts[-1]["chat_id"], "-200")             # 短剧选题发到独立群
+
+    def test_channels_are_ordered_and_only_first_message_notifies(self):
+        ed = self.build()
+        order = [p["label"] for p in ed.parts if p.get("label")]
+        self.assertLess(order.index("谷歌趋势"), order.index("维基百科"))
+        self.assertLess(order.index("Reddit 问答"), order.index("B站全站榜"))
+        self.assertEqual([p["silent"] for p in ed.parts][:2], [False, True])
+
+    def test_cross_channel_duplicates_are_kept_with_see_also(self):
+        ed = self.build()
+        text = "\n".join(p["text"] for p in ed.parts)
+        self.assertGreaterEqual(text.count("斯图尔特"), 2)             # 谷歌与维基各有一条
+        self.assertIn("另见：维基百科", text)
+
+    def test_no_source_variety_or_explicit_label(self):
+        self.assertNotIn("variety", json.dumps(config.load_sources(), ensure_ascii=False).lower())
+
+
 class PipelineTopicTests(unittest.TestCase):
-    def test_llm_topic_flags_are_dropped_and_backfilled_from_reserve(self):
+    def test_per_channel_backfill_after_topic_exclusion(self):
         from radar.pipeline import build_daily
         settings = config.load_settings()
-        settings["targets"].update({"daily_total": 6, "reserve": 4, "cn_min": 0})
         settings["free_translate"]["enabled"] = False
         settings["adult"]["enabled"] = False
-        names = ["Amber festival lineup", "Bobby documentary premiere", "Carla tour announcement", "Derek sitcom reunion",
-                 "Elena award speech", "Frank podcast launch", "Gina novel adaptation", "Harold stage comeback",
-                 "Iris album surprise", "Jonas film trailer", "Kira series finale", "Louis comedy special"]
-        items = [mk(n, src=f"src{i % 5}", kind="trend", rank=i + 1, url=f"https://e.com/{i}", desc="x " * 30)
-                 for i, n in enumerate(names)]
-        cfgs = [{"id": f"src{i}", "name": f"S{i}", "type": "fake"} for i in range(5)]
+        names = {"a": ["Amber festival lineup", "Bobby documentary premiere", "Carla tour announcement", "Derek sitcom reunion",
+                       "Elena award speech", "Frank podcast launch"],
+                 "b": ["Gina novel adaptation", "Harold stage comeback", "Iris album surprise", "Jonas film trailer",
+                       "Kira series finale", "Louis comedy special"]}
+        items = [mk(n, src=sid, kind="trend", rank=i + 1, url=f"https://e.com/{sid}{i}", desc="x " * 30)
+                 for sid, ns in names.items() for i, n in enumerate(ns)]
+        cfgs = [{"id": "a", "name": "A", "type": "fake", "channel": "渠道甲", "show": 3, "channel_order": 1},
+                {"id": "b", "name": "B", "type": "fake", "channel": "渠道乙", "show": 3, "channel_order": 2}]
         reg = {"fake": lambda c, x: [i for i in items if i.source == c["id"]]}
 
         class LLM:
@@ -779,30 +848,154 @@ class PipelineTopicTests(unittest.TestCase):
             def complete_json(self, system, user, **kw):
                 rows = json.loads(user)
                 return [{"id": r["id"], "title_zh": "中文" + r["id"], "summary_zh": "简介" * 30, "tags": [],
-                         "topic": "politics" if r["title"].startswith(("Bobby", "Carla")) else "other", "drama_signal": ""} for r in rows]
+                         "topic": "politics" if r["title"].startswith(("Amber", "Gina")) else "other", "drama_signal": ""}
+                        for r in rows]
         hist = state.History(Path(tempfile.mkdtemp()))
         with mock.patch.object(S, "registry", return_value=reg), mock.patch("radar.pipeline.attach_bodies", return_value=0):
             ed = build_daily("2026-11-05", NOW, settings, cfgs, LEX, {"TELEGRAM_CHAT_ID": "-1"}, LLM(), None, hist,
                              log=lambda *_: None)
-        daily = [i for i in ed.items if i.section == "daily"]
-        self.assertEqual(len(daily), 6)                           # 被剔除后由备选补满
-        self.assertFalse(any(i.title.startswith(("Bobby", "Carla")) for i in daily))      # 被判定为政治的不在入选里
-        self.assertEqual(ed.drops.get("政治(AI判定)", 0) >= 1, True)
+        by = {c["name"]: c["shown"] for c in ed.channels}
+        self.assertEqual(by, {"渠道甲": 3, "渠道乙": 3})              # 每个渠道被剔除一条后，由备选补满 3 条
+        self.assertFalse(any(i.title.startswith(("Amber", "Gina")) for i in ed.items))
+        self.assertGreaterEqual(ed.drops.get("政治(AI判定)", 0), 2)
+        self.assertEqual([p["label"] for p in ed.parts if p.get("label")], ["渠道甲", "渠道乙"])
 
 
-class ChartRenderTests(unittest.TestCase):
-    def test_charts_grouped_by_board_with_attribution(self):
-        data = json.loads((Path(__file__).resolve().parent.parent / "examples" / "items_2026-11-04.json").read_text("utf-8"))
-        items = [Item.from_dict(d) for d in data["chart"]]
-        msgs = R.render_charts("2026-11-04", items, 3800)
-        text = "\n".join(m for _, m in msgs)
-        for board in ("JustWatch US · 电影", "JustWatch US · 剧集", "豆瓣 · 热门电影", "抖音官方短剧日榜"):
-            self.assertIn(board, text)
-        self.assertIn("AI短剧", text)                            # AI 短剧形态标签保留给 AI 短剧组
-        self.assertIn("口径各异", text)
-        self.assertNotIn("TMDB API", text)                       # 没有 TMDB 条目就不挂 TMDB 声明
-        t2 = Item.from_dict(dict(data["chart"][0], source="tmdb_movies"))
-        self.assertIn("TMDB API", "\n".join(m for _, m in R.render_charts("2026-11-04", [t2], 3800)))
+class TranslationTests(unittest.TestCase):
+    def tr(self, **kw):
+        from radar.translate import Translator
+        return Translator(True, cache_path=Path(tempfile.mkdtemp()) / "t.json", **kw)
+
+    def test_needs_translation(self):
+        from radar.text import needs_translation as nt
+        for t in ("Hudson Williams interview", "東京タワーで撮影", "안녕하세요 팬여러분", "OK"):
+            self.assertTrue(nt(t), t)
+        for t in ("Cardi B 官宣新专辑", "某明星官宣恋情", "Dexerto 报道称", ""):
+            self.assertFalse(nt(t), t)
+
+    def test_chinese_is_not_sent_to_translators(self):
+        tr = self.tr()
+        with mock.patch.object(http, "fetch") as f:
+            self.assertEqual(tr.translate("某明星官宣恋情"), "某明星官宣恋情")
+        f.assert_not_called()
+
+    def test_falls_back_to_mymemory_when_gtx_fails(self):
+        def fake(url, **kw):
+            if "translate.googleapis.com" in url:
+                raise http.FetchError("HTTP 429", 429)
+            return json.dumps({"responseData": {"translatedText": "这位演员周五表示。"}, "responseStatus": 200}).encode()
+        tr = self.tr(email="a@b.com")
+        with mock.patch.object(http, "fetch", side_effect=fake):
+            self.assertEqual(tr.translate("The actor said on Friday."), "这位演员周五表示。")
+        self.assertEqual(tr.stats["mymemory"], 1)
+
+    def test_mymemory_quota_warning_is_rejected(self):
+        body = json.dumps({"responseData": {"translatedText": "MYMEMORY WARNING: YOU USED ALL AVAILABLE FREE TRANSLATIONS FOR TODAY"},
+                           "responseStatus": 429}).encode()
+        tr = self.tr(providers=("mymemory",))
+        with mock.patch.object(http, "fetch", return_value=body):
+            self.assertIsNone(tr.translate("The actor said on Friday."))
+
+    def test_circuit_breaker_stops_each_provider_after_three_failures(self):
+        tr = self.tr()
+        with mock.patch.object(http, "fetch", side_effect=http.FetchError("timeout")) as f:
+            for i in range(10):
+                self.assertIsNone(tr.translate(f"English title number {i} about a film"))
+        self.assertEqual(f.call_count, 6)                             # gtx 3 次 + mymemory 3 次，之后不再请求
+        self.assertEqual(tr.off, {"gtx", "mymemory"})
+
+    def test_long_text_is_chunked_and_cached(self):
+        calls = []
+
+        def fake(url, **kw):
+            calls.append(url)
+            return json.dumps([[["中", "x"]]]).encode()
+        tr = self.tr()
+        long = "This is one sentence about a film. " * 30
+        with mock.patch.object(http, "fetch", side_effect=fake):
+            out = tr.translate(long)
+            n = len(calls)
+            tr.translate(long)
+        self.assertGreater(n, 1)                                      # 长文本分块
+        self.assertEqual(len(calls), n)                               # 第二次走缓存
+        self.assertTrue(out.startswith("中"))
+
+    def test_llm_english_output_is_rejected_and_retried_then_mt_then_marked(self):
+        a, b = mk("English one", desc="Some english description here."), mk("English two", desc="Another description.")
+        llm = LLMEditorDramaTests.FakeLLM([
+            [{"id": a.id, "title_zh": "Still English", "summary_zh": "Still English", "tags": [], "topic": "other"}],   # 首轮：外文→拒收
+            [{"id": a.id, "title_zh": "卡迪·B（Cardi B）官宣", "summary_zh": "这是中文简介。", "tags": [], "topic": "other"}]])  # 重试成功
+
+        class Tr:
+            def translate(self, t): return "机翻：" + t[:6] if "two" in t.lower() or "another" in t.lower() else None
+        stats = editor.enrich([a, b], llm, Tr(), LEX, config.load_settings(), log=lambda *_: None)
+        self.assertEqual(a.title_zh, "卡迪·B（Cardi B）官宣")
+        self.assertTrue(b.title_zh.startswith("机翻"))                 # 大模型没返回的，机翻兜底
+        self.assertGreaterEqual(stats["mt"], 1)
+        c = mk("English three", desc="Yet another one.")
+        editor.enrich([c], None, type("T", (), {"translate": lambda s, t: None})(), LEX, config.load_settings(), log=lambda *_: None)
+        self.assertIn("untranslated", c.flags)                        # 全都失败：明确标“未译”
+        self.assertTrue(c.summary_zh.startswith("（未译）"))
+
+    def test_gemini_model_name_is_normalized_and_models_listed(self):
+        m = L.LLM("gemini", "k", "models/gemini-x-flash")
+        self.assertEqual(m.model, "gemini-x-flash")
+        payload = {"models": [{"name": "models/gemini-a", "supportedGenerationMethods": ["generateContent"]},
+                              {"name": "models/embed-b", "supportedGenerationMethods": ["embedContent"]}]}
+        with mock.patch.object(http, "fetch_json", return_value=payload):
+            self.assertEqual(m.list_models(), ["gemini-a"])
+
+    def test_llm_respects_min_interval(self):
+        m = L.LLM("gemini", "k", "m", min_interval=5.0)
+        with mock.patch.object(L.http, "post_json", return_value={"candidates": [{"content": {"parts": [{"text": "[]"}]}}]}), \
+                mock.patch("radar.llm.time.sleep") as sl:
+            m.complete_json("s", "u"); m.complete_json("s", "u")
+        self.assertTrue(sl.called)                                    # 第二次调用前会等待，避免触发免费档的每分钟限额
+
+    def test_llm_test_command_reports_clearly(self):
+        env = {"LLM_PROVIDER": "none"}
+        with mock.patch.dict(os.environ, env, clear=False), mock.patch("builtins.print") as pr, \
+                mock.patch.object(http, "fetch", side_effect=http.FetchError("timeout")):
+            os.environ.pop("LLM_API_KEY", None)
+            rc = cli.main(["llm-test"])
+        out = "\n".join(str(c.args[0]) for c in pr.call_args_list)
+        self.assertEqual(rc, 1)
+        self.assertIn("大模型未配置完整", out)
+        self.assertIn("机器翻译兜底", out)
+
+    def test_workflow_has_llmtest_option(self):
+        wf = (Path(__file__).resolve().parent.parent / ".github" / "workflows" / "radar.yml").read_text("utf-8")
+        self.assertIn("llmtest", wf)
+        self.assertIn("MYMEMORY_EMAIL", wf)
+
+
+class ReportAndLimitTests(unittest.TestCase):
+    def test_admin_report_stays_under_telegram_limit_even_with_many_failures(self):
+        from radar import health
+        res = [SourceResult(id=f"s{i}", name=f"来源{i}" * 4, status="error", error="HTTP 403 " * 6) for i in range(60)]
+        txt = health.admin_report("2026-11-05", res, {"selected": 10}, {"政治": 3}, {"llm": 5, "mt": 2, "raw": 1}, False, None,
+                                  [], [{"name": f"渠道{i}", "shown": 0} for i in range(40)], {"failed": 3})
+        self.assertLessEqual(len(txt), 4096)
+        self.assertIn("未配置大模型", txt)
+
+    def test_llm_429_waits_and_retries_once(self):
+        m = L.LLM("gemini", "k", "m", min_interval=0)
+        seq = [http.FetchError("HTTP 429", 429), {"candidates": [{"content": {"parts": [{"text": "[1]"}]}}]}]
+
+        def fake(url, payload, **kw):
+            r = seq.pop(0)
+            if isinstance(r, Exception):
+                raise r
+            return r
+        with mock.patch.object(L.http, "post_json", side_effect=fake), mock.patch("radar.llm.time.sleep") as sl:
+            self.assertEqual(m.complete_json("s", "u"), [1])
+        sl.assert_any_call(25)
+
+    def test_settings_have_no_stale_keys(self):
+        st = config.load_settings()
+        for stale in ("daily_total", "cn_min", "cn_max", "per_source", "max_news_total"):
+            self.assertNotIn(stale, json.dumps(st))
+        self.assertGreaterEqual(st["llm"]["min_interval"], 6.0)      # 免费 Flash 约每分钟 10 次，间隔需 ≥6 秒
 
 
 class ScheduleNewTimeTests(unittest.TestCase):
@@ -894,7 +1087,7 @@ class WeeklyTests(unittest.TestCase):
             hist.save(day, rows, {"drama": data["drama_cards"] if day == "2026-11-04" else []})
         ed = build_weekly("2026-11-06", NOW, config.load_settings(), LEX, {"TELEGRAM_CHAT_ID": "-1"}, None, hist,
                           log=lambda *_: None)
-        self.assertEqual(len(ed.items), 14)                  # 三天重复的同一事件只留一条
+        self.assertEqual(len(ed.items), 16)                  # 周回顾是跨渠道精选：三天重复、跨渠道的同一事件只留一条（17 条里谷歌与维基的斯图尔特合并）
         text = "\n".join(p["text"] for p in ed.parts)
         self.assertIn("本周收录", text)
         self.assertIn("本周 AI 短剧选题回顾", text)
@@ -930,8 +1123,9 @@ class EndToEndTests(unittest.TestCase):
             edge = lambda t, p: {"node": {"content": {"title": t, "originalReleaseYear": 2026, "shortDescription": "desc", "fullPath": p}}}
             return json.dumps({"data": {"popularTitles": {"edges": [edge("Title A", "/us/movie/a"), edge("Title B", "/us/movie/b")]}}}).encode()
         if "hollywoodreporter" in url:
-            return b"""<?xml version="1.0"?><rss><channel><item><title>Patrick Stewart dead at age 86</title>
-<link>https://thr.example/1</link><description>Actor</description><pubDate>Thu, 05 Nov 2026 00:30:00 GMT</pubDate></item></channel></rss>"""
+            from email.utils import formatdate
+            return (b"""<?xml version="1.0"?><rss><channel><item><title>Patrick Stewart dead at age 86</title>
+<link>https://thr.example/1</link><description>Actor</description><pubDate>""" + formatdate(usegmt=True).encode() + b"""</pubDate></item></channel></rss>""")
         if "news.google.com" in url:
             return GNEWS
         raise http.FetchError("HTTP 403", 403)
@@ -942,7 +1136,8 @@ class EndToEndTests(unittest.TestCase):
                     "stat": {"view": 2_000_000 - i, "like": 1, "danmaku": 1}, "owner": {"name": "u"}, "tname": "生活"}
                     for i in range(8)]}}
         if "pageviews/top" in url:                      # 维基：纯日期、无时区——上次崩溃的数据形态
-            if "/2026/11/04" in url or "/2026/11/" in url and "03" not in url.split("/")[-1]:
+            yday = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=1)).strftime("%Y/%m/%d")
+            if url.endswith(yday):
                 return {"items": [{"articles": [{"article": "Main_Page", "views": 9_000_000, "rank": 1},
                                                 {"article": "Patrick_Stewart", "views": 1_500_000, "rank": 2},
                                                 {"article": "Taylor_Swift", "views": 900_000, "rank": 3}]}]}
@@ -993,7 +1188,12 @@ class EndToEndTests(unittest.TestCase):
         self.assertIn("Patrick Stewart", texts)
         self.assertNotIn("Midterm election", texts)              # 政治类被挡掉
         self.assertNotIn("OpenAI", texts)                        # AI 科技类被挡掉
-        self.assertIn("影视与短剧榜单", texts)                   # 榜单消息已发出
+        main = [t for c, t in self.FakeTG.sent if c == "-100"]
+        for title in ("🔍 谷歌趋势资讯", "📚 维基百科资讯", "🔥 微博热搜资讯", "🎶 抖音热榜资讯", "📺 B站全站榜资讯",
+                      "JustWatch 美国影视榜资讯", "豆瓣榜单资讯", "🔎 成人平台行业观察"):
+            self.assertEqual(sum(title in t for t in main), 1, title)        # 每个渠道恰好一条消息
+        for t in main:
+            self.assertLessEqual(t.count("资讯</b>") + t.count("行业观察</b>"), 1)   # 一条消息里只有一个渠道
         self.assertIn("Title A", texts)
         self.assertIn("抖音话题", texts)                          # 新增的国内来源进入日报
         self.assertNotIn("露骨内容", texts)

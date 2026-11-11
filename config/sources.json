@@ -1,5 +1,5 @@
 {
-  "_说明": "enabled=false 的源默认不运行；experimental=true 表示未经联网验证，请先运行 doctor。group+role=fallback 表示同组主源失败或为空时才启用的备用源。需要密钥的源（Reddit/TMDB）没有密钥时自动跳过。",
+  "_说明": "enabled=false 的源默认不运行；experimental=true 表示未经联网验证，请先运行 doctor。group+role=fallback 表示同组主源失败或为空时才启用的备用源。channel：同一个 channel 名的来源合并为一条消息；show：该渠道每天最多展示几条。",
   "sources": [
     {
       "id": "google_trends_us",
@@ -10,7 +10,12 @@
       "url": "https://trends.google.com/trending/rss?geo=US",
       "limit": 20,
       "weight": 1.0,
-      "enabled": true
+      "enabled": true,
+      "channel": "谷歌趋势",
+      "emoji": "🔍",
+      "channel_order": 10,
+      "show": 8,
+      "note": "按谷歌美国 24 小时搜索量排序"
     },
     {
       "id": "wikipedia_top_en",
@@ -22,7 +27,12 @@
       "limit": 15,
       "fetch_summary": true,
       "weight": 0.9,
-      "enabled": true
+      "enabled": true,
+      "channel": "维基百科",
+      "emoji": "📚",
+      "channel_order": 20,
+      "show": 6,
+      "note": "英文维基百科昨日浏览量激增的词条"
     },
     {
       "id": "kym_news",
@@ -35,7 +45,12 @@
       "max_age_hours": 72,
       "weight": 1.0,
       "enabled": true,
-      "experimental": true
+      "experimental": true,
+      "channel": "梗百科",
+      "emoji": "😂",
+      "channel_order": 30,
+      "show": 5,
+      "note": "Know Your Meme 近期梗文化报道"
     },
     {
       "id": "tiktok_trends",
@@ -49,7 +64,12 @@
       "weight": 0.7,
       "enabled": true,
       "experimental": true,
-      "_note": "TikTok 创作者中心公开趋势；接口可能需要签名，失败时报告里会写明原因。"
+      "_note": "TikTok 创作者中心公开趋势；接口可能需要签名，失败时报告里会写明原因。",
+      "channel": "TikTok",
+      "emoji": "🎵",
+      "channel_order": 40,
+      "show": 6,
+      "note": "TikTok 创作者中心：美国近 7 天热门话题标签"
     },
     {
       "id": "reddit_popculture",
@@ -63,7 +83,12 @@
       "weight": 1.0,
       "enabled": true,
       "experimental": true,
-      "_note": "Reddit 在云服务器上没有免费通道；设置 CRAWLORA_API_KEY（第三方托管接口，有免费档）后自动启用，未设置则跳过。"
+      "_note": "Reddit 在云服务器上没有免费通道；设置 CRAWLORA_API_KEY（第三方托管接口，有免费档）后自动启用，未设置则跳过。",
+      "channel": "Reddit 流行文化",
+      "emoji": "💬",
+      "channel_order": 50,
+      "show": 5,
+      "note": "r/popculturechat 热帖"
     },
     {
       "id": "reddit_television",
@@ -77,7 +102,12 @@
       "weight": 0.9,
       "enabled": true,
       "experimental": true,
-      "_note": "Reddit 在云服务器上没有免费通道；设置 CRAWLORA_API_KEY（第三方托管接口，有免费档）后自动启用，未设置则跳过。"
+      "_note": "Reddit 在云服务器上没有免费通道；设置 CRAWLORA_API_KEY（第三方托管接口，有免费档）后自动启用，未设置则跳过。",
+      "channel": "Reddit 电视",
+      "emoji": "💬",
+      "channel_order": 51,
+      "show": 5,
+      "note": "r/television 热帖"
     },
     {
       "id": "reddit_movies",
@@ -91,7 +121,12 @@
       "weight": 0.9,
       "enabled": true,
       "experimental": true,
-      "_note": "Reddit 在云服务器上没有免费通道；设置 CRAWLORA_API_KEY（第三方托管接口，有免费档）后自动启用，未设置则跳过。"
+      "_note": "Reddit 在云服务器上没有免费通道；设置 CRAWLORA_API_KEY（第三方托管接口，有免费档）后自动启用，未设置则跳过。",
+      "channel": "Reddit 电影",
+      "emoji": "💬",
+      "channel_order": 52,
+      "show": 5,
+      "note": "r/movies 热帖"
     },
     {
       "id": "reddit_askreddit",
@@ -105,7 +140,12 @@
       "weight": 0.8,
       "enabled": true,
       "experimental": true,
-      "_note": "Reddit 在云服务器上没有免费通道；设置 CRAWLORA_API_KEY（第三方托管接口，有免费档）后自动启用，未设置则跳过。"
+      "_note": "Reddit 在云服务器上没有免费通道；设置 CRAWLORA_API_KEY（第三方托管接口，有免费档）后自动启用，未设置则跳过。",
+      "channel": "Reddit 问答",
+      "emoji": "💬",
+      "channel_order": 53,
+      "show": 5,
+      "note": "r/AskReddit 热帖"
     },
     {
       "id": "dexerto_rss",
@@ -118,7 +158,12 @@
       "max_age_hours": 48,
       "weight": 0.9,
       "enabled": true,
-      "experimental": true
+      "experimental": true,
+      "channel": "Dexerto",
+      "emoji": "🎮",
+      "channel_order": 60,
+      "show": 4,
+      "note": "Dexerto 近期报道"
     },
     {
       "id": "thr_rss",
@@ -130,7 +175,12 @@
       "limit": 6,
       "max_age_hours": 48,
       "weight": 0.75,
-      "enabled": true
+      "enabled": true,
+      "channel": "好莱坞报道者",
+      "emoji": "🎬",
+      "channel_order": 61,
+      "show": 4,
+      "note": "The Hollywood Reporter 近期报道"
     },
     {
       "id": "deadline_rss",
@@ -143,7 +193,12 @@
       "max_age_hours": 48,
       "weight": 0.75,
       "enabled": true,
-      "experimental": true
+      "experimental": true,
+      "channel": "Deadline",
+      "emoji": "🎬",
+      "channel_order": 62,
+      "show": 4,
+      "note": "Deadline 近期报道"
     },
     {
       "id": "rollingstone_rss",
@@ -156,7 +211,12 @@
       "max_age_hours": 48,
       "weight": 0.75,
       "enabled": true,
-      "experimental": true
+      "experimental": true,
+      "channel": "滚石",
+      "emoji": "🎸",
+      "channel_order": 63,
+      "show": 4,
+      "note": "Rolling Stone 近期报道"
     },
     {
       "id": "vulture_rss",
@@ -169,7 +229,12 @@
       "max_age_hours": 48,
       "weight": 0.75,
       "enabled": true,
-      "experimental": true
+      "experimental": true,
+      "channel": "Vulture",
+      "emoji": "📰",
+      "channel_order": 64,
+      "show": 4,
+      "note": "Vulture 近期报道"
     },
     {
       "id": "indiewire_rss",
@@ -182,7 +247,12 @@
       "max_age_hours": 48,
       "weight": 0.7,
       "enabled": true,
-      "experimental": true
+      "experimental": true,
+      "channel": "IndieWire",
+      "emoji": "📰",
+      "channel_order": 65,
+      "show": 4,
+      "note": "IndieWire 近期报道"
     },
     {
       "id": "billboard_rss",
@@ -195,7 +265,12 @@
       "max_age_hours": 48,
       "weight": 0.7,
       "enabled": true,
-      "experimental": true
+      "experimental": true,
+      "channel": "Billboard",
+      "emoji": "🎤",
+      "channel_order": 66,
+      "show": 4,
+      "note": "Billboard 近期报道"
     },
     {
       "id": "pitchfork_rss",
@@ -208,7 +283,12 @@
       "max_age_hours": 48,
       "weight": 0.7,
       "enabled": true,
-      "experimental": true
+      "experimental": true,
+      "channel": "Pitchfork",
+      "emoji": "🎧",
+      "channel_order": 67,
+      "show": 4,
+      "note": "Pitchfork 近期报道"
     },
     {
       "id": "nme_rss",
@@ -221,7 +301,12 @@
       "max_age_hours": 48,
       "weight": 0.7,
       "enabled": true,
-      "experimental": true
+      "experimental": true,
+      "channel": "NME",
+      "emoji": "🎧",
+      "channel_order": 68,
+      "show": 4,
+      "note": "NME 近期报道"
     },
     {
       "id": "guardian_culture_rss",
@@ -234,7 +319,12 @@
       "max_age_hours": 48,
       "weight": 0.7,
       "enabled": true,
-      "experimental": true
+      "experimental": true,
+      "channel": "卫报文化",
+      "emoji": "📰",
+      "channel_order": 69,
+      "show": 4,
+      "note": "The Guardian 文化版"
     },
     {
       "id": "bbc_ent_rss",
@@ -247,7 +337,12 @@
       "max_age_hours": 48,
       "weight": 0.7,
       "enabled": true,
-      "experimental": true
+      "experimental": true,
+      "channel": "BBC 娱乐",
+      "emoji": "📰",
+      "channel_order": 70,
+      "show": 4,
+      "note": "BBC 娱乐与艺术"
     },
     {
       "id": "npr_rss",
@@ -259,7 +354,12 @@
       "limit": 6,
       "max_age_hours": 48,
       "weight": 0.7,
-      "enabled": true
+      "enabled": true,
+      "channel": "NPR 文化",
+      "emoji": "📰",
+      "channel_order": 71,
+      "show": 4,
+      "note": "NPR 文化报道"
     },
     {
       "id": "bilibili_ranking",
@@ -271,7 +371,12 @@
       "limit": 12,
       "group": "bilibili",
       "weight": 1.0,
-      "enabled": true
+      "enabled": true,
+      "channel": "B站全站榜",
+      "emoji": "📺",
+      "channel_order": 140,
+      "show": 8,
+      "note": "哔哩哔哩全站排行榜"
     },
     {
       "id": "bilibili_rsshub",
@@ -286,7 +391,12 @@
       "role": "fallback",
       "weight": 0.9,
       "enabled": true,
-      "experimental": true
+      "experimental": true,
+      "channel": "B站全站榜",
+      "emoji": "📺",
+      "channel_order": 140,
+      "show": 8,
+      "note": "哔哩哔哩全站排行榜"
     },
     {
       "id": "weibo_hot",
@@ -298,7 +408,12 @@
       "limit": 15,
       "group": "weibo",
       "weight": 1.0,
-      "enabled": true
+      "enabled": true,
+      "channel": "微博热搜",
+      "emoji": "🔥",
+      "channel_order": 100,
+      "show": 10,
+      "note": "微博实时热搜榜"
     },
     {
       "id": "weibo_tophub",
@@ -312,7 +427,12 @@
       "role": "fallback",
       "weight": 0.9,
       "enabled": true,
-      "experimental": true
+      "experimental": true,
+      "channel": "微博热搜",
+      "emoji": "🔥",
+      "channel_order": 100,
+      "show": 10,
+      "note": "微博实时热搜榜"
     },
     {
       "id": "weibo_rsshub",
@@ -327,7 +447,12 @@
       "role": "fallback",
       "weight": 0.9,
       "enabled": true,
-      "experimental": true
+      "experimental": true,
+      "channel": "微博热搜",
+      "emoji": "🔥",
+      "channel_order": 100,
+      "show": 10,
+      "note": "微博实时热搜榜"
     },
     {
       "id": "douyin_hot",
@@ -339,7 +464,12 @@
       "group": "douyin",
       "weight": 1.0,
       "enabled": true,
-      "experimental": true
+      "experimental": true,
+      "channel": "抖音热榜",
+      "emoji": "🎶",
+      "channel_order": 110,
+      "show": 10,
+      "note": "抖音热搜榜"
     },
     {
       "id": "douyin_tophub",
@@ -353,7 +483,12 @@
       "role": "fallback",
       "weight": 0.9,
       "enabled": true,
-      "experimental": true
+      "experimental": true,
+      "channel": "抖音热榜",
+      "emoji": "🎶",
+      "channel_order": 110,
+      "show": 10,
+      "note": "抖音热搜榜"
     },
     {
       "id": "zhihu_hot",
@@ -365,7 +500,12 @@
       "group": "zhihu",
       "weight": 0.9,
       "enabled": true,
-      "experimental": true
+      "experimental": true,
+      "channel": "知乎热榜",
+      "emoji": "❓",
+      "channel_order": 120,
+      "show": 8,
+      "note": "知乎热榜"
     },
     {
       "id": "zhihu_tophub",
@@ -379,7 +519,12 @@
       "role": "fallback",
       "weight": 0.85,
       "enabled": true,
-      "experimental": true
+      "experimental": true,
+      "channel": "知乎热榜",
+      "emoji": "❓",
+      "channel_order": 120,
+      "show": 8,
+      "note": "知乎热榜"
     },
     {
       "id": "zhihu_rsshub",
@@ -394,7 +539,12 @@
       "role": "fallback",
       "weight": 0.85,
       "enabled": true,
-      "experimental": true
+      "experimental": true,
+      "channel": "知乎热榜",
+      "emoji": "❓",
+      "channel_order": 120,
+      "show": 8,
+      "note": "知乎热榜"
     },
     {
       "id": "xhs_tophub",
@@ -407,7 +557,12 @@
       "weight": 0.9,
       "enabled": true,
       "experimental": true,
-      "_note": "小红书没有公开热搜接口，只能经第三方聚合站取；聚合站没有该榜单时会在报告里说明。"
+      "_note": "小红书没有公开热搜接口，只能经第三方聚合站取；聚合站没有该榜单时会在报告里说明。",
+      "channel": "小红书热榜",
+      "emoji": "📕",
+      "channel_order": 130,
+      "show": 8,
+      "note": "小红书热榜（经聚合站）"
     },
     {
       "id": "duanju_charts",
@@ -422,7 +577,12 @@
       "weight": 0.9,
       "enabled": true,
       "experimental": true,
-      "_note": "页面超过 3 天未更新会被判定为已过期并剔除。"
+      "_note": "页面超过 3 天未更新会被判定为已过期并剔除。",
+      "channel": "短剧榜单文章",
+      "emoji": "📰",
+      "channel_order": 170,
+      "show": 4,
+      "note": "第三方转载的短剧榜单报道"
     },
     {
       "id": "justwatch_us",
@@ -436,7 +596,11 @@
       "limit": 5,
       "group": "us_charts",
       "enabled": true,
-      "experimental": true
+      "experimental": true,
+      "channel": "JustWatch 美国影视榜",
+      "emoji": "📊",
+      "channel_order": 80,
+      "show": 5
     },
     {
       "id": "tmdb_movies",
@@ -449,7 +613,11 @@
       "limit": 5,
       "group": "us_charts",
       "role": "fallback",
-      "enabled": true
+      "enabled": true,
+      "channel": "JustWatch 美国影视榜",
+      "emoji": "📊",
+      "channel_order": 80,
+      "show": 5
     },
     {
       "id": "tmdb_tv",
@@ -462,7 +630,11 @@
       "limit": 5,
       "group": "us_charts",
       "role": "fallback",
-      "enabled": true
+      "enabled": true,
+      "channel": "JustWatch 美国影视榜",
+      "emoji": "📊",
+      "channel_order": 80,
+      "show": 5
     },
     {
       "id": "douban_movie_hot",
@@ -476,7 +648,11 @@
       "board_order": 5,
       "limit": 5,
       "enabled": true,
-      "experimental": true
+      "experimental": true,
+      "channel": "豆瓣榜单",
+      "emoji": "🎬",
+      "channel_order": 150,
+      "show": 5
     },
     {
       "id": "douban_tv_hot",
@@ -490,7 +666,11 @@
       "board_order": 6,
       "limit": 5,
       "enabled": true,
-      "experimental": true
+      "experimental": true,
+      "channel": "豆瓣榜单",
+      "emoji": "🎬",
+      "channel_order": 150,
+      "show": 5
     },
     {
       "id": "duanju_gongcheng",
@@ -505,7 +685,11 @@
       "limit": 10,
       "enabled": true,
       "experimental": true,
-      "_note": "2026-09-08 起为每日更新的日榜；页面超过 3 天未更新会被判定为已过期。"
+      "_note": "2026-09-08 起为每日更新的日榜；页面超过 3 天未更新会被判定为已过期。",
+      "channel": "抖音短剧日榜",
+      "emoji": "🎞",
+      "channel_order": 160,
+      "show": 10
     },
     {
       "id": "adult_news",
@@ -549,7 +733,12 @@
         "onlyfans.com",
         "redtube.com",
         "youporn.com"
-      ]
+      ],
+      "channel": "成人平台行业观察",
+      "emoji": "🔎",
+      "channel_order": 900,
+      "show": 5,
+      "note": "仅收录主流媒体的非露骨行业、监管与研究报道"
     }
   ]
 }

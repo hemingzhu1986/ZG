@@ -81,23 +81,31 @@ def heat(it: Item) -> float:
 
 
 def dedupe(items: list[Item], threshold: float = 0.55) -> list[Item]:
-    """同一事件只留热度最高的一条，其余来源记入 also_in（作为跨源印证）。"""
+    """同一渠道内：同一事件只留热度最高的一条。（跨渠道不删，各渠道消息各自完整。）"""
     order = sorted(items, key=lambda i: -heat(i))
     kept: list[Item] = []
     for it in order:
         key = canonical_url(it.url)
-        dup = None
-        for k in kept:
-            if canonical_url(k.url) == key or similar(k.title, it.title, threshold):
-                dup = k
-                break
+        dup = next((k for k in kept if canonical_url(k.url) == key or similar(k.title, it.title, threshold)), None)
         if dup is None:
             kept.append(it)
-        elif it.source != dup.source and it.source_name not in dup.also_in:
-            dup.also_in.append(it.source_name)
-            if len(it.desc) > len(dup.desc):
-                dup.desc = it.desc
+        elif len(it.desc) > len(dup.desc):
+            dup.desc = it.desc
     return kept
+
+
+def corroborate(items: list[Item], threshold: float = 0.55) -> None:
+    """跨渠道印证：同一事件在别的渠道也出现，记为“另见”，并提高综合分数。只标注，不删除。"""
+    toks = {i.id: tokens(i.title) for i in items}
+    for idx, a in enumerate(items):
+        for b in items[idx + 1:]:
+            if a.channel == b.channel:
+                continue
+            if jaccard(toks[a.id], toks[b.id]) >= threshold or similar(a.title, b.title, threshold):
+                if b.channel not in a.also_in:
+                    a.also_in.append(b.channel)
+                if a.channel not in b.also_in:
+                    b.also_in.append(a.channel)
 
 
 def drop_recent_repeats(items: list[Item], recent: list[dict], window_days: int, gain: float) -> tuple[list[Item], int]:
@@ -150,55 +158,20 @@ def score(items: list[Item], cfg_by_id: dict, now: dt.datetime) -> None:
             it.score *= 0.6
 
 
-# ───────────────────────── 选取（含配额） ─────────────────────────
-def select_daily(items: list[Item], settings: dict, themes: dict | None = None, reserve: int = 0) -> tuple[list[Item], dict]:
-    """按分数贪心选取，受配额约束：单源上限、新闻类总上限、体育上限、国内最小/最大条数。
-    条数不足不凑数：低于 daily_total 就少发，并在报告里说明缺口。"""
-    t, caps = settings["targets"], settings["caps"]
-    per_src = caps["per_source"]
-    ranked = sorted(items, key=lambda i: -i.score)
-    chosen: list[Item] = []
-    cnt_src, cnt_news, cnt_sports = Counter(), 0, 0
-    cn_max, total = t["cn_max"] + (reserve // 3), t["daily_total"] + reserve
-
-    def ok(it: Item) -> bool:
-        if cnt_src[it.source] >= per_src.get(it.source, per_src["default"]):
-            return False
-        if it.kind == "news" and cnt_news >= caps["max_news_total"]:
-            return False
-        if "sports" in it.flags and cnt_sports >= caps["max_sports"]:
-            return False
-        if it.region == "cn" and sum(1 for c in chosen if c.region == "cn") >= cn_max:
-            return False
-        return True
-
-    def take(it: Item):
-        nonlocal cnt_news, cnt_sports
-        chosen.append(it)
-        cnt_src[it.source] += 1
-        cnt_news += it.kind == "news"
-        cnt_sports += "sports" in it.flags
-
-    # 先保证国内最小条数（国内是“补充”，但不能为零）
-    for it in [i for i in ranked if i.region == "cn"]:
-        if sum(1 for c in chosen if c.region == "cn") >= t["cn_min"]:
+# ───────────────────────── 渠道内选取 ─────────────────────────
+def select_channel(items: list[Item], count: int, max_sports: int = 1) -> list[Item]:
+    """在一个渠道内按平台名次（或综合分数）取前 count 条；体育赛事限量。"""
+    from .channels import order_items
+    out, sports = [], 0
+    for it in order_items(items):
+        if "sports" in it.flags:
+            if sports >= max_sports:
+                continue
+            sports += 1
+        out.append(it)
+        if len(out) >= count:
             break
-        if ok(it):
-            take(it)
-    for it in ranked:
-        if len(chosen) >= total:
-            break
-        if it not in chosen and ok(it):
-            take(it)
-    chosen.sort(key=lambda i: -i.score)
-    gaps = {
-        "selected": len(chosen),
-        "target": total - reserve,
-        "cn": sum(1 for c in chosen if c.region == "cn"),
-        "cn_min": t["cn_min"],
-        "short_by": max(0, total - reserve - len(chosen)),
-    }
-    return chosen, gaps
+    return out
 
 
 def theme_hits(it: Item, themes: dict) -> list[str]:

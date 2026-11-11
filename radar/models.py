@@ -12,6 +12,7 @@ class Item:
     region: str = "intl"        # intl | cn
     kind: str = "news"          # trend | rank | news | community | chart | manual
     section: str = "daily"      # daily | chart | adult
+    channel: str = ""           # 渠道名（一个渠道发一条消息），如“谷歌趋势”
     desc: str = ""
     rank: int | None = None
     metrics: dict = field(default_factory=dict)

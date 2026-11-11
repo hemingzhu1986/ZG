@@ -21,6 +21,50 @@ def has_cjk(s: str) -> bool:
     return bool(CJK.search(s or ""))
 
 
+_KANA = re.compile(r"[\u3040-\u30ff]")
+_HANGUL = re.compile(r"[\uac00-\ud7af]")
+
+
+def needs_translation(s: str) -> bool:
+    """是否需要翻译成中文：含日文假名/韩文，或几乎没有汉字而有英文字母。
+    中文里夹着英文人名（如“Cardi B 官宣新专辑”）不算需要翻译。"""
+    s = (s or "").strip()
+    if not s:
+        return False
+    if _KANA.search(s) or _HANGUL.search(s):
+        return True
+    cjk, latin = len(CJK.findall(s)), len(re.findall(r"[A-Za-z]", s))
+    if cjk == 0:
+        return latin >= 2
+    return cjk < 4 and latin >= 12
+
+
+def chunk_text(s: str, max_bytes: int = 450) -> list[str]:
+    """按句子分块，每块 UTF-8 不超过 max_bytes（免费翻译接口对单次长度有限制）。"""
+    s = " ".join((s or "").split())
+    if len(s.encode("utf-8")) <= max_bytes:
+        return [s] if s else []
+    parts = re.findall(r".+?(?:[。！？]+|[.!?]+(?=\s|$)|$)", s)
+    out, cur = [], ""
+    for p in parts:
+        while len(p.encode("utf-8")) > max_bytes:                 # 单句过长：硬切
+            cut = max(1, max_bytes // 3)
+            while len(p[:cut].encode("utf-8")) < max_bytes and cut < len(p):
+                cut += 1
+            if len(p[:cut].encode("utf-8")) > max_bytes:
+                cut -= 1
+            if cur:
+                out.append(cur.strip()); cur = ""
+            out.append(p[:cut].strip()); p = p[cut:]
+        if len((cur + p).encode("utf-8")) > max_bytes and cur:
+            out.append(cur.strip()); cur = p
+        else:
+            cur += p
+    if cur.strip():
+        out.append(cur.strip())
+    return [c for c in out if c]
+
+
 def strip_html(s: str) -> str:
     s = html.unescape(_TAG.sub(" ", s or ""))
     return re.sub(r"\s+", " ", s).strip()
