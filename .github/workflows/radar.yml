@@ -18,9 +18,9 @@ on:
   workflow_dispatch:
     inputs:
       force:
-        description: "daily/weekly=忽略时间窗强制运行（测试频道时用）；doctor=只检查所有数据源状态，不发送；test=向主频道/管理员/短剧群各发一条测试消息并报告原因"
+        description: "daily/weekly=忽略时间窗强制运行（测试频道时用）；doctor=只检查所有数据源状态，不发送；test=向主频道/管理员/短剧群各发一条测试消息并报告原因；llmtest=检查翻译链路（大模型与机器翻译）"
         type: choice
-        options: ["", "daily", "weekly", "doctor", "test"]
+        options: ["", "daily", "weekly", "doctor", "test", "llmtest"]
         default: ""
 
 concurrency:
@@ -33,7 +33,7 @@ permissions:
 jobs:
   run:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     env:
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
@@ -48,6 +48,7 @@ jobs:
       RSSHUB_BASE: ${{ secrets.RSSHUB_BASE }}
       CRAWLORA_API_KEY: ${{ secrets.CRAWLORA_API_KEY }}
       APIFY_TOKEN: ${{ secrets.APIFY_TOKEN }}
+      MYMEMORY_EMAIL: ${{ secrets.MYMEMORY_EMAIL }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -57,6 +58,8 @@ jobs:
         run: |
           if [ "${{ github.event.inputs.force }}" = "doctor" ]; then
             python -m radar doctor
+          elif [ "${{ github.event.inputs.force }}" = "llmtest" ]; then
+            python -m radar llm-test
           elif [ "${{ github.event.inputs.force }}" = "test" ]; then
             python -m radar send-test
           elif [ -n "${{ github.event.inputs.force }}" ]; then
