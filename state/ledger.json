@@ -105,5 +105,118 @@
       "status": "sent",
       "ts": "2026-11-11T03:05:58.396263+00:00"
     }
+  },
+  "2026-11-12": {
+    "_complete_daily": true,
+    "ch_adult_news": {
+      "message_id": 42,
+      "status": "sent",
+      "ts": "2026-11-12T03:07:39.046297+00:00"
+    },
+    "ch_bbc_ent_rss": {
+      "message_id": 34,
+      "status": "sent",
+      "ts": "2026-11-12T03:07:06.830629+00:00"
+    },
+    "ch_bilibili_ranking": {
+      "message_id": 39,
+      "status": "sent",
+      "ts": "2026-11-12T03:07:26.972596+00:00"
+    },
+    "ch_billboard_rss": {
+      "message_id": 30,
+      "status": "sent",
+      "ts": "2026-11-12T03:06:50.764912+00:00"
+    },
+    "ch_deadline_rss": {
+      "message_id": 27,
+      "status": "sent",
+      "ts": "2026-11-12T03:06:38.673019+00:00"
+    },
+    "ch_dexerto_rss": {
+      "message_id": 25,
+      "status": "sent",
+      "ts": "2026-11-12T03:06:30.660945+00:00"
+    },
+    "ch_douban_movie_hot": {
+      "message_id": 40,
+      "status": "sent",
+      "ts": "2026-11-12T03:07:31.011694+00:00"
+    },
+    "ch_douyin_hot": {
+      "message_id": 37,
+      "status": "sent",
+      "ts": "2026-11-12T03:07:18.919733+00:00"
+    },
+    "ch_duanju_gongcheng": {
+      "message_id": 41,
+      "status": "sent",
+      "ts": "2026-11-12T03:07:35.033344+00:00"
+    },
+    "ch_google_trends_us": {
+      "message_id": 22,
+      "status": "sent",
+      "ts": "2026-11-12T03:06:22.091867+00:00"
+    },
+    "ch_guardian_culture_rss": {
+      "message_id": 33,
+      "status": "sent",
+      "ts": "2026-11-12T03:07:02.803460+00:00"
+    },
+    "ch_indiewire_rss": {
+      "message_id": 29,
+      "status": "sent",
+      "ts": "2026-11-12T03:06:46.728505+00:00"
+    },
+    "ch_justwatch_us": {
+      "message_id": 35,
+      "status": "sent",
+      "ts": "2026-11-12T03:07:10.862405+00:00"
+    },
+    "ch_kym_news": {
+      "message_id": 24,
+      "status": "sent",
+      "ts": "2026-11-12T03:06:26.637503+00:00"
+    },
+    "ch_nme_rss": {
+      "message_id": 32,
+      "status": "sent",
+      "ts": "2026-11-12T03:06:58.785247+00:00"
+    },
+    "ch_pitchfork_rss": {
+      "message_id": 31,
+      "status": "sent",
+      "ts": "2026-11-12T03:06:54.783004+00:00"
+    },
+    "ch_rollingstone_rss": {
+      "message_id": 28,
+      "status": "sent",
+      "ts": "2026-11-12T03:06:42.720540+00:00"
+    },
+    "ch_thr_rss": {
+      "message_id": 26,
+      "status": "sent",
+      "ts": "2026-11-12T03:06:34.668713+00:00"
+    },
+    "ch_weibo_hot": {
+      "message_id": 36,
+      "status": "sent",
+      "ts": "2026-11-12T03:07:14.871222+00:00"
+    },
+    "ch_wikipedia_top_en": {
+      "message_id": 23,
+      "status": "sent",
+      "ts": "2026-11-12T03:06:22.631931+00:00"
+    },
+    "ch_zhihu_hot": {
+      "message_id": 38,
+      "status": "sent",
+      "ts": "2026-11-12T03:07:22.965179+00:00"
+    },
+    "drama#1": {
+      "message_id": 35,
+      "status": "sent",
+      "ts": "2026-11-12T03:07:43.040795+00:00"
+    }
   }
 }

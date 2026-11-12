@@ -1,0 +1,255 @@
+{
+  "drops": {
+    "AI科技": 6,
+    "政治": 12,
+    "近3天重复": 4
+  },
+  "enrich": {
+    "llm": 0,
+    "mt": 58,
+    "raw": 75
+  },
+  "gaps": {
+    "channels": 21,
+    "empty": [
+      "NPR 文化"
+    ],
+    "selected": 112
+  },
+  "sources": [
+    {
+      "count": 10,
+      "error": "",
+      "id": "google_trends_us",
+      "status": "ok"
+    },
+    {
+      "count": 15,
+      "error": "",
+      "id": "wikipedia_top_en",
+      "status": "ok"
+    },
+    {
+      "count": 4,
+      "error": "",
+      "id": "kym_news",
+      "status": "ok"
+    },
+    {
+      "count": 0,
+      "error": "格式异常：TikTok 返回错误码 40101（可能需要签名）",
+      "id": "tiktok_trends",
+      "status": "error"
+    },
+    {
+      "count": 0,
+      "error": "未设置 CRAWLORA_API_KEY（Reddit 在云服务器上无免费通道，见 README）",
+      "id": "reddit_popculture",
+      "status": "skipped"
+    },
+    {
+      "count": 0,
+      "error": "未设置 CRAWLORA_API_KEY（Reddit 在云服务器上无免费通道，见 README）",
+      "id": "reddit_television",
+      "status": "skipped"
+    },
+    {
+      "count": 0,
+      "error": "未设置 CRAWLORA_API_KEY（Reddit 在云服务器上无免费通道，见 README）",
+      "id": "reddit_movies",
+      "status": "skipped"
+    },
+    {
+      "count": 0,
+      "error": "未设置 CRAWLORA_API_KEY（Reddit 在云服务器上无免费通道，见 README）",
+      "id": "reddit_askreddit",
+      "status": "skipped"
+    },
+    {
+      "count": 6,
+      "error": "",
+      "id": "dexerto_rss",
+      "status": "ok"
+    },
+    {
+      "count": 6,
+      "error": "",
+      "id": "thr_rss",
+      "status": "ok"
+    },
+    {
+      "count": 6,
+      "error": "",
+      "id": "deadline_rss",
+      "status": "ok"
+    },
+    {
+      "count": 6,
+      "error": "",
+      "id": "rollingstone_rss",
+      "status": "ok"
+    },
+    {
+      "count": 0,
+      "error": "HTTP 404",
+      "id": "vulture_rss",
+      "status": "error"
+    },
+    {
+      "count": 6,
+      "error": "",
+      "id": "indiewire_rss",
+      "status": "ok"
+    },
+    {
+      "count": 6,
+      "error": "",
+      "id": "billboard_rss",
+      "status": "ok"
+    },
+    {
+      "count": 6,
+      "error": "",
+      "id": "pitchfork_rss",
+      "status": "ok"
+    },
+    {
+      "count": 6,
+      "error": "",
+      "id": "nme_rss",
+      "status": "ok"
+    },
+    {
+      "count": 6,
+      "error": "",
+      "id": "guardian_culture_rss",
+      "status": "ok"
+    },
+    {
+      "count": 6,
+      "error": "",
+      "id": "bbc_ent_rss",
+      "status": "ok"
+    },
+    {
+      "count": 1,
+      "error": "",
+      "id": "npr_rss",
+      "status": "ok"
+    },
+    {
+      "count": 12,
+      "error": "",
+      "id": "bilibili_ranking",
+      "status": "ok"
+    },
+    {
+      "count": 15,
+      "error": "",
+      "id": "weibo_hot",
+      "status": "ok"
+    },
+    {
+      "count": 15,
+      "error": "",
+      "id": "douyin_hot",
+      "status": "ok"
+    },
+    {
+      "count": 0,
+      "error": "HTTP 401",
+      "id": "zhihu_hot",
+      "status": "error"
+    },
+    {
+      "count": 0,
+      "error": "格式异常：聚合站里没找到「小红书」榜单（页面可能改版）",
+      "id": "xhs_tophub",
+      "status": "error"
+    },
+    {
+      "count": 0,
+      "error": "最新榜单日期 2026-10-31，已超过 3 天",
+      "id": "duanju_charts",
+      "status": "stale"
+    },
+    {
+      "count": 10,
+      "error": "",
+      "id": "justwatch_us",
+      "status": "ok"
+    },
+    {
+      "count": 5,
+      "error": "",
+      "id": "douban_movie_hot",
+      "status": "ok"
+    },
+    {
+      "count": 5,
+      "error": "",
+      "id": "douban_tv_hot",
+      "status": "ok"
+    },
+    {
+      "count": 10,
+      "error": "",
+      "id": "duanju_gongcheng",
+      "status": "ok"
+    },
+    {
+      "count": 1,
+      "error": "",
+      "id": "adult_news",
+      "status": "ok"
+    },
+    {
+      "count": 15,
+      "error": "",
+      "id": "zhihu_tophub",
+      "status": "ok"
+    },
+    {
+      "count": 0,
+      "error": "HTTP 403",
+      "id": "zhihu_rsshub",
+      "status": "error"
+    },
+    {
+      "count": 0,
+      "error": "主源正常，未启用备用源",
+      "id": "bilibili_rsshub",
+      "status": "skipped"
+    },
+    {
+      "count": 0,
+      "error": "主源正常，未启用备用源",
+      "id": "weibo_tophub",
+      "status": "skipped"
+    },
+    {
+      "count": 0,
+      "error": "主源正常，未启用备用源",
+      "id": "weibo_rsshub",
+      "status": "skipped"
+    },
+    {
+      "count": 0,
+      "error": "主源正常，未启用备用源",
+      "id": "douyin_tophub",
+      "status": "skipped"
+    },
+    {
+      "count": 0,
+      "error": "主源正常，未启用备用源",
+      "id": "tmdb_movies",
+      "status": "skipped"
+    },
+    {
+      "count": 0,
+      "error": "主源正常，未启用备用源",
+      "id": "tmdb_tv",
+      "status": "skipped"
+    }
+  ]
+}
