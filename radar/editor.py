@@ -20,6 +20,8 @@ def _guess_tags(it: Item, lex: dict) -> list[str]:
 
 
 def _apply_llm(items: list[Item], out, log) -> int:
+    if isinstance(out, dict):                                   # 兼容 {"items":[...]} / {"results":[...]} 这类外层包装
+        out = next((v for v in out.values() if isinstance(v, list)), out)
     if not isinstance(out, list):
         raise ValueError("expected array")
     by_id = {it.id: it for it in items}
@@ -54,9 +56,14 @@ def _llm_pass(todo: list[Item], llm, settings: dict, log) -> int:
                     "heat": it.heat_text, "region": it.region} for it in chunk]
         try:
             out = llm.complete_json(system, json.dumps(payload, ensure_ascii=False), max_tokens=12000)
-            done += _apply_llm(chunk, out, log)
+            n = _apply_llm(chunk, out, log)
+            done += n
+            if n < len(chunk):
+                llm.last_error = llm.last_error or f"返回了 {n}/{len(chunk)} 条可用结果（其余为外文或缺失）"
         except Exception as e:
-            log(f"[editor] 大模型批次失败：{type(e).__name__}，该批将重试或降级")
+            from .llm import describe_error
+            llm.last_error = describe_error(e)
+            log(f"[editor] 大模型批次失败：{llm.last_error}；该批将重试或降级")
     return done
 
 
@@ -106,6 +113,9 @@ def enrich(items: list[Item], llm, translator, lex: dict, settings: dict, log=pr
         _fallback_translate(it, translator, stats)
         if not it.tags:
             it.tags = _guess_tags(it, lex)
+    if llm is not None and getattr(llm, "available", False):
+        stats["llm_error"] = (llm.last_error if stats["llm"] == 0 and todo else "")      # 全军覆没时才当作故障上报
+        stats["llm_notice"] = getattr(llm, "notice", "")
     return stats
 
 

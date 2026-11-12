@@ -44,6 +44,10 @@ def admin_report(date: str, results, gaps: dict, drops: dict, enrich_stats: dict
                  f"｜未能翻译{enrich_stats.get('raw', 0)}条（已标“未译”）｜大模型{'已启用' if llm_on else '未配置'}")
     if not llm_on:
         lines.append("⚠️ 未配置大模型：外文只能机器翻译，译文质量较低；请按 README 配置免费的 Gemini。")
+    if enrich_stats.get("llm_error"):
+        lines.append("❗ 大模型调用失败，今天已降级为机器翻译。原因：" + esc(enrich_stats["llm_error"]))
+    if enrich_stats.get("llm_notice"):
+        lines.append("ℹ️ " + esc(enrich_stats["llm_notice"]))
     if mt.get("failed"):
         lines.append(f"⚠️ 机器翻译失败 {mt['failed']} 次（通道可能被拦截或额度用尽）")
     if publish_res:

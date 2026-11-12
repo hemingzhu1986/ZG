@@ -97,12 +97,14 @@
 
 **强烈建议配置免费大模型**，没有它简介只能是来源摘要的机翻。步骤（只需一个 Google 账号，不用信用卡）：
 1. 打开 aistudio.google.com/apikey，登录 Google 账号，点 **Create API key**，复制密钥。
-2. GitHub 仓库 → Settings → Secrets and variables → Actions，添加三个 Secret：
-   `LLM_PROVIDER` = `gemini`；`LLM_API_KEY` = 刚复制的密钥；`LLM_MODEL` = 先填 `gemini-2.5-flash-lite`（若不对，见下一步）。
-3. Actions → radar → Run workflow → 选 **llmtest**：会列出这个密钥当前可用的全部模型，并用两条样例试译。若提示模型不在列表里，把 `LLM_MODEL` 改成列表中带 `flash` 或 `flash-lite` 的一个，再测一次，直到显示“✅ 大模型试译成功”。
+2. GitHub 仓库 → Settings → Secrets and variables → Actions：
+   - 在 **Secrets** 里添加 `LLM_API_KEY` = 刚复制的密钥。
+   - `LLM_PROVIDER` = `gemini`、`LLM_MODEL` = `gemini-flash-lite-latest` 建议放在 **Variables** 标签页（不是 Secrets）：Secrets 里的值会在日志中被自动打码成 `***`，不方便排查；放 Variables 则日志里看得见。放 Secrets 也能用。
+   - 模型名建议用带 `-latest` 的别名（如 `gemini-flash-lite-latest`、`gemini-flash-latest`），Google 会让它始终指向当前可用的版本，不容易因旧模型下线而失效。**不要选** pro / gemma / image / tts 类模型（免费档通常没有额度或不支持）。
+3. Actions → radar → Run workflow → 选 **llmtest**：先检查密钥是否有效、列出推荐模型，再用两条样例试译。**失败时会打印 Google 返回的具体原因**（429=额度用完或该模型无免费额度；404=模型名不存在；400=模型不支持；403=密钥无权限）。你填的模型不可用时，程序运行时会**自动改用一个可用的 Flash 模型**，并在运行报告里告诉你改用了哪个。
 4. （可选）添加 Secret `MYMEMORY_EMAIL`，填任意有效邮箱，机器翻译兜底的每日额度从 5000 字提到 5 万字。
 
-免费档有每分钟和每天的次数限制、模型名也会变：程序在调用之间留了 7 秒间隔，遇到限流会自动等待重试。免费档条款通常允许服务商使用提交的内容，所以只发送公开的标题与摘要。
+免费档有每分钟和每天的次数限制、模型名也会变：程序在调用之间留了 7 秒间隔，遇到限流会自动等待重试；大模型整天都调不通时，运行报告会写明原因，日报自动降级为机器翻译，不会中断。免费档条款通常允许服务商使用提交的内容，所以只发送公开的标题与摘要。
 
 ### AI 短剧选题的三档降级
 | 档位 | 条件 | 短剧选题 |
@@ -172,7 +174,7 @@ config/sources.json     数据源清单（启停、权重、备用源）
 config/lexicon.json     政治/AI/商业/体育词表、标签与短剧主题词表
 config/prompts/         大模型提示词（简介、概述、短剧选题）
 radar/                  代码（sources/ 是各数据源适配器）
-tests/                  99 个离线测试：python3 -m unittest discover -s tests
+tests/                  107 个离线测试：python3 -m unittest discover -s tests
 examples/               示例输入与输出
 .github/workflows/      GitHub Actions 工作流
 deploy/ + docker-compose.yml   服务器常驻部署（serve）：Dockerfile、systemd、crontab 备选

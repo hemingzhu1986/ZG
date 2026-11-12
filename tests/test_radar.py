@@ -969,6 +969,96 @@ class TranslationTests(unittest.TestCase):
         self.assertIn("MYMEMORY_EMAIL", wf)
 
 
+class GeminiResilienceTests(unittest.TestCase):
+    """你遇到的“试译失败”类问题：原因可见、模型不可用时自动换、不支持系统指令的模型自动走兼容写法。"""
+    OK = {"candidates": [{"content": {"parts": [{"text": '[{"id":"a"}]'}]}}]}
+    MODELS = {"models": [{"name": f"models/{n}", "supportedGenerationMethods": ["generateContent"]} for n in (
+        "gemini-2.5-pro", "gemini-flash-latest", "gemini-flash-lite-latest", "gemini-3.5-flash-lite", "gemma-4-31b-it",
+        "gemini-3.1-flash-image", "gemini-3-flash-preview", "gemini-3.1-flash-lite-preview-tts")]}
+
+    def llm(self, model="gemini-2.5-pro"):
+        m = L.LLM("gemini", "k", model, min_interval=0)
+        m._models_cache = [x["name"].removeprefix("models/") for x in self.MODELS["models"]]
+        return m
+
+    def test_candidates_exclude_pro_gemma_image_tts_and_prefer_latest_aliases(self):
+        c = self.llm().candidate_models()
+        self.assertEqual(c[0], "gemini-flash-lite-latest")
+        for bad in ("pro", "gemma", "image", "tts"):
+            self.assertFalse(any(bad in n for n in c), bad)
+
+    def test_unavailable_model_auto_switches_and_says_so(self):
+        m = self.llm("gemini-2.5-pro")
+
+        def fake(url, payload, **kw):
+            if "gemini-2.5-pro" in url:
+                raise http.FetchError("HTTP 429", 429, '{"error":{"code":429,"message":"Quota exceeded, limit: 0","status":"RESOURCE_EXHAUSTED"}}')
+            return self.OK
+        with mock.patch.object(L.http, "post_json", side_effect=fake), mock.patch("radar.llm.time.sleep") as sl:
+            self.assertEqual(m.complete_json("s", "u"), [{"id": "a"}])
+        self.assertEqual(m.model, "gemini-flash-lite-latest")
+        self.assertIn("已自动改用 gemini-flash-lite-latest", m.notice)
+        sl.assert_not_called()                                    # “limit: 0” 说明该模型无免费额度，不要白等 25 秒
+
+    def test_bad_key_does_not_try_other_models(self):
+        m = self.llm("gemini-flash-latest")
+        with mock.patch.object(L.http, "post_json", side_effect=http.FetchError("HTTP 403", 403, "{}")) as p:
+            with self.assertRaises(http.FetchError):
+                m.complete_json("s", "u")
+        self.assertEqual(p.call_count, 1)
+
+    def test_models_without_system_instruction_use_compat_mode(self):
+        m = self.llm("gemini-flash-latest")
+        seen = []
+
+        def fake(url, payload, **kw):
+            seen.append(payload)
+            if "systemInstruction" in payload:
+                raise http.FetchError("HTTP 400", 400, '{"error":{"message":"Developer instruction is not enabled for this model"}}')
+            return self.OK
+        with mock.patch.object(L.http, "post_json", side_effect=fake):
+            self.assertEqual(m.complete_json("SYS", "USER"), [{"id": "a"}])
+        self.assertNotIn("systemInstruction", seen[-1])
+        self.assertIn("SYS", seen[-1]["contents"][0]["parts"][0]["text"])        # 指令并入用户消息
+        self.assertNotIn("responseMimeType", seen[-1]["generationConfig"])
+
+    def test_empty_response_gives_readable_error_not_keyerror(self):
+        m = self.llm("gemini-flash-latest"); m.fallback = False
+        with mock.patch.object(L.http, "post_json", return_value={"candidates": [{"finishReason": "MAX_TOKENS", "content": {}}]}):
+            with self.assertRaises(L.LLMError) as cm:
+                m.complete_json("s", "u")
+        self.assertIn("MAX_TOKENS", str(cm.exception))
+
+    def test_error_reason_is_visible_in_llm_test_and_report(self):
+        env = {"LLM_PROVIDER": "gemini", "LLM_API_KEY": "k", "LLM_MODEL": "gemini-2.5-pro"}
+        body = '{"error":{"code":400,"message":"API key not valid. Please pass a valid API key.","status":"INVALID_ARGUMENT"}}'
+
+        def fake_post(url, payload, **kw):
+            raise http.FetchError("HTTP 400", 400, body)
+        with mock.patch.dict(os.environ, env, clear=False), mock.patch("builtins.print") as pr, \
+                mock.patch.object(L.http, "post_json", side_effect=fake_post), \
+                mock.patch.object(L.http, "fetch_json", return_value=self.MODELS), mock.patch("radar.llm.time.sleep"), \
+                mock.patch.object(http, "fetch", side_effect=http.FetchError("timeout")):
+            rc = cli.main(["llm-test"])
+        out = "\n".join(str(c.args[0]) for c in pr.call_args_list)
+        self.assertEqual(rc, 1)
+        self.assertIn("具体原因", out)
+        self.assertIn("API key not valid", out)                       # 直接看到 Google 返回的原因
+        from radar import health
+        rep = health.admin_report("d", [], {"selected": 0}, {}, {"llm": 0, "mt": 0, "raw": 0, "llm_error": "HTTP 429：Quota exceeded"}, True, None, [], [])
+        self.assertIn("大模型调用失败", rep)
+        self.assertIn("Quota exceeded", rep)
+
+    def test_wrapped_array_is_accepted(self):
+        a = mk("English one")
+        out = {"items": [{"id": a.id, "title_zh": "中文标题", "summary_zh": "这是中文简介。", "tags": [], "topic": "other"}]}
+        self.assertEqual(editor._apply_llm([a], out, lambda *_: None), 1)
+
+    def test_workflow_accepts_variables_or_secrets_for_provider_and_model(self):
+        wf = (Path(__file__).resolve().parent.parent / ".github" / "workflows" / "radar.yml").read_text("utf-8")
+        self.assertIn("vars.LLM_MODEL || secrets.LLM_MODEL", wf)
+
+
 class ReportAndLimitTests(unittest.TestCase):
     def test_admin_report_stays_under_telegram_limit_even_with_many_failures(self):
         from radar import health
@@ -1127,7 +1217,8 @@ class EndToEndTests(unittest.TestCase):
             return (b"""<?xml version="1.0"?><rss><channel><item><title>Patrick Stewart dead at age 86</title>
 <link>https://thr.example/1</link><description>Actor</description><pubDate>""" + formatdate(usegmt=True).encode() + b"""</pubDate></item></channel></rss>""")
         if "news.google.com" in url:
-            return GNEWS
+            from email.utils import formatdate
+            return GNEWS.replace(b"Wed, 04 Nov 2026 10:00:00 GMT", formatdate(usegmt=True).encode())    # 时间随真实日期，避免被时效过滤
         raise http.FetchError("HTTP 403", 403)
 
     def route_json(self, url, **kw):

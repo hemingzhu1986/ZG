@@ -233,8 +233,10 @@ def cmd_serve(a) -> int:
 
 
 def cmd_llm_test(a) -> int:
-    """检查翻译链路：1) 大模型配置是否可用（并列出可选模型）；2) 用样例外文条目试译；3) 免费机器翻译兜底是否可用。"""
+    """检查翻译链路，并把失败的**具体原因**打印出来。
+    说明：GitHub 会把和你的 Secret 值相同的文字在日志里自动打码成 ***（例如 provider、model），这是正常的。"""
     from . import editor
+    from .llm import describe_error
     from .models import Item
     env = _env()
     settings = config.load_settings()
@@ -248,24 +250,31 @@ def cmd_llm_test(a) -> int:
     else:
         try:
             models = llm.list_models()
-            if models:
-                print("该密钥可用的模型（请选一个标注“免费”的 Flash/Flash-Lite 填入 LLM_MODEL）：\n  " + "\n  ".join(models[:25]))
-                if llm.model not in models:
-                    print(f"⚠️ 你填的 LLM_MODEL={llm.model} 不在上面的列表里，可能填错或已下线。")
+            print(f"✅ 密钥有效：可用的文本模型共 {len(models)} 个。程序推荐（按优先级）：{', '.join(llm.candidate_models()[:6]) or '（无）'}")
+            if llm.model not in models:
+                print(f"⚠️ 你填的 LLM_MODEL 不在可用列表里（可能填错或已下线），程序会自动改用上面推荐的模型。")
         except Exception as e:
-            print(f"（模型列表获取失败：{type(e).__name__}，不影响后面的试译）")
+            print(f"❌ 获取模型列表失败：{describe_error(e)}")
+            ok = False
         samples = [Item(id="t1", title="Hudson Williams says his bond with co-star Connor Storrie is platonic", url="https://example.com/1",
                         source="s", source_name="示例", desc="The Heated Rivalry actor said in an interview that he and his co-star are close friends, sparking a debate about how male affection is perceived."),
                    Item(id="t2", title="Fans react as Netflix cancels cult sci-fi series after two seasons", url="https://example.com/2",
                         source="s", source_name="示例", desc="Viewers expressed disappointment online after the streamer confirmed the show would not return.")]
-        n = editor._llm_pass(samples, llm, settings, lambda *_: None)
+        logs = []
+        n = editor._llm_pass(samples, llm, settings, logs.append)
         for s_ in samples:
-            print(f"  试译：{s_.title_zh or '（失败）'} ｜ {s_.summary_zh[:60]}")
+            print(f"  试译：{s_.title_zh or '（失败）'} ｜ {s_.summary_zh[:70]}")
+        if llm.notice:
+            print("ℹ️ " + llm.notice)
         if n < len(samples):
-            print("❌ 大模型试译未全部成功：请检查密钥、模型名，或稍后重试（免费档有每分钟/每天次数限制）。")
             ok = False
+            print("❌ 大模型试译未全部成功。")
+            print(f"   具体原因：{llm.last_error or '（无错误信息）'}")
+            if llm.last_raw:
+                print(f"   模型返回的原文片段：{llm.last_raw[:200]!r}")
+            print("   常见原因：429=免费额度用完或该模型无免费额度（换 flash-lite 模型）；404=模型名不存在；400=模型不支持（避免 pro/gemma/image/tts 类）；403=密钥无权限。")
         else:
-            print("✅ 大模型试译成功。")
+            print(f"✅ 大模型试译成功（实际使用模型：{llm.model}）。")
     tr = Translator(True, email=env.get("MYMEMORY_EMAIL", ""))
     tr.cache = {}
     t = tr.translate("The actor said on Friday that the series will return next year.")
