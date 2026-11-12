@@ -40,9 +40,9 @@ jobs:
       ADMIN_CHAT_ID: ${{ secrets.ADMIN_CHAT_ID }}
       ADMIN_USER_IDS: ${{ secrets.ADMIN_USER_IDS }}
       DRAMA_CHAT_ID: ${{ secrets.DRAMA_CHAT_ID }}
-      LLM_PROVIDER: ${{ secrets.LLM_PROVIDER }}
+      LLM_PROVIDER: ${{ vars.LLM_PROVIDER || secrets.LLM_PROVIDER }}
       LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
-      LLM_MODEL: ${{ secrets.LLM_MODEL }}
+      LLM_MODEL: ${{ vars.LLM_MODEL || secrets.LLM_MODEL }}
       LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
       TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
       RSSHUB_BASE: ${{ secrets.RSSHUB_BASE }}
