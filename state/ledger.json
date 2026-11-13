@@ -221,6 +221,7 @@
   },
   "2026-11-13": {
     "_complete_daily": true,
+    "_complete_weekly": true,
     "ch_bbc_ent_rss": {
       "message_id": 55,
       "status": "sent",
@@ -330,6 +331,16 @@
       "message_id": 39,
       "status": "sent",
       "ts": "2026-11-13T03:10:52.943865+00:00"
+    },
+    "weekly#1": {
+      "message_id": 64,
+      "status": "sent",
+      "ts": "2026-11-13T10:50:53.375448+00:00"
+    },
+    "weekly#2": {
+      "message_id": 65,
+      "status": "sent",
+      "ts": "2026-11-13T10:50:54.059144+00:00"
     }
   }
 }
