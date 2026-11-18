@@ -49,6 +49,7 @@ jobs:
       CRAWLORA_API_KEY: ${{ secrets.CRAWLORA_API_KEY }}
       APIFY_TOKEN: ${{ secrets.APIFY_TOKEN }}
       MYMEMORY_EMAIL: ${{ secrets.MYMEMORY_EMAIL }}
+      TELEGRAM_CHANNEL_USERNAME: ${{ vars.TELEGRAM_CHANNEL_USERNAME || secrets.TELEGRAM_CHANNEL_USERNAME }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
