@@ -9,7 +9,7 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from radar import (cli, collect as C, config, drama, editor, http, inbox, llm as L, process as P, publish as PUB,
+from radar import (nav as NAV, cli, collect as C, config, drama, editor, http, inbox, llm as L, process as P, publish as PUB,
                    render as R, schedule, state)
 from radar import sources as S
 from radar.models import Item, SourceResult
@@ -1059,6 +1059,130 @@ class GeminiResilienceTests(unittest.TestCase):
         self.assertIn("vars.LLM_MODEL || secrets.LLM_MODEL", wf)
 
 
+class NavTests(unittest.TestCase):
+    """快捷导航：点渠道名跳到该渠道最新一天的那条消息，并置顶。"""
+
+    class TG:
+        def __init__(self, pin_error=None):
+            self.sent, self.pins, self.unpins, self.pin_error = [], [], [], pin_error
+            self.n = 1000
+
+        def send(self, chat, text, silent=False, html_mode=True):
+            self.n += 1
+            self.sent.append((self.n, chat, text))
+            return self.n
+
+        def pin(self, chat, mid):
+            if self.pin_error:
+                raise self.pin_error
+            self.pins.append(mid)
+
+        def unpin(self, chat, mid):
+            self.unpins.append(mid)
+
+    ENV = {"TELEGRAM_CHAT_ID": "-1001234567890"}
+    SETTINGS = config.load_settings()
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+        self.p = mock.patch.object(NAV, "STATE", self.tmp)
+        self.p.start()
+        self.ledger = state.Ledger(self.tmp / "ledger.json")
+
+    def tearDown(self):
+        self.p.stop()
+
+    def parts(self, date, names):
+        out = []
+        for n, (name, group) in enumerate(names):
+            key = "ch_" + name
+            self.ledger.set(date, key, status="sent", message_id=100 + n)
+            out.append({"key": key, "chat_id": "-100", "text": "x",
+                        "nav": {"name": name, "emoji": "🔍", "order": n, "group": group}})
+        return out
+
+    def test_link_base(self):
+        self.assertEqual(NAV.link_base({"TELEGRAM_CHAT_ID": "-1001234567890"}), "https://t.me/c/1234567890")
+        self.assertEqual(NAV.link_base({"TELEGRAM_CHAT_ID": "-100123", "TELEGRAM_CHANNEL_USERNAME": "@my_channel"}), "https://t.me/my_channel")
+        self.assertEqual(NAV.link_base({"TELEGRAM_CHAT_ID": "@pubchan"}), "https://t.me/pubchan")
+        self.assertEqual(NAV.link_base({"TELEGRAM_CHAT_ID": "12345"}), "")
+
+    def test_nav_links_point_to_each_channels_message_and_group_charts_first(self):
+        parts = self.parts("2026-11-09", [("谷歌趋势", "国际"), ("微博热搜", "国内"), ("豆瓣榜单", "榜单")])
+        text = NAV.render_nav("2026-11-09", NAV.update_index("2026-11-09", parts, self.ledger), "https://t.me/c/1234567890")
+        self.assertIn('<a href="https://t.me/c/1234567890/100">🔍谷歌趋势</a>', text)
+        self.assertIn('href="https://t.me/c/1234567890/102">🔍豆瓣榜单', text)
+        self.assertIn("⏫ 回到今日第一条", text)
+        self.assertLess(text.index("榜单"), text.index("国际"))                 # 榜单分组排在最前
+        self.assertLess(text.index("国际"), text.index("国内"))
+
+    def test_channel_without_new_message_today_links_to_its_latest_older_one(self):
+        NAV.update_index("2026-11-08", self.parts("2026-11-08", [("谷歌趋势", "国际"), ("知乎热榜", "国内")]), self.ledger)
+        # 11/9 知乎没内容，只有谷歌发了新消息
+        parts9 = self.parts("2026-11-09", [("谷歌趋势", "国际")])
+        idx = NAV.update_index("2026-11-09", parts9, self.ledger)
+        text = NAV.render_nav("2026-11-09", idx, "https://t.me/c/1")
+        self.assertIn("知乎热榜</a>（11/8）", text)                               # 仍可点击，并标注日期
+        self.assertNotIn("谷歌趋势</a>（", text)
+
+    def test_stale_channels_expire_after_keep_days(self):
+        NAV.update_index("2026-11-01", self.parts("2026-11-01", [("旧渠道", "国际")]), self.ledger)
+        idx = NAV.update_index("2026-11-12", self.parts("2026-11-12", [("新渠道", "国际")]), self.ledger, keep_days=7)
+        self.assertEqual(list(idx["channels"]), ["新渠道"])
+
+    def test_only_successfully_sent_messages_are_linked(self):
+        parts = self.parts("2026-11-09", [("谷歌趋势", "国际"), ("微博热搜", "国内")])
+        self.ledger.set("2026-11-09", "ch_微博热搜", status="failed")
+        idx = NAV.update_index("2026-11-09", parts, self.ledger)
+        self.assertEqual(list(idx["channels"]), ["谷歌趋势"])
+
+    def test_send_pins_new_nav_and_unpins_yesterdays(self):
+        tg = self.TG()
+        pub = __import__("radar.publish", fromlist=["x"]).publish
+        r1 = NAV.send_nav(tg, pub, self.ledger, self.ENV, self.SETTINGS, "2026-11-08", self.parts("2026-11-08", [("谷歌趋势", "国际")]), log=lambda *_: None)
+        self.assertEqual((r1["status"], r1["pin"]), ("sent", "ok"))
+        first_nav = tg.pins[-1]
+        r2 = NAV.send_nav(tg, pub, self.ledger, self.ENV, self.SETTINGS, "2026-11-09", self.parts("2026-11-09", [("谷歌趋势", "国际")]), log=lambda *_: None)
+        self.assertEqual(r2["status"], "sent")
+        self.assertEqual(tg.unpins, [first_nav])                                  # 取消昨天的置顶，只留最新一条
+        self.assertEqual(len(tg.pins), 2)
+
+    def test_nav_is_not_sent_twice_for_the_same_day(self):
+        tg = self.TG()
+        pub = __import__("radar.publish", fromlist=["x"]).publish
+        parts = self.parts("2026-11-09", [("谷歌趋势", "国际")])
+        NAV.send_nav(tg, pub, self.ledger, self.ENV, self.SETTINGS, "2026-11-09", parts, log=lambda *_: None)
+        r = NAV.send_nav(tg, pub, self.ledger, self.ENV, self.SETTINGS, "2026-11-09", parts, log=lambda *_: None)
+        self.assertEqual(r["status"], "skipped")
+        self.assertEqual(len(tg.sent), 1)
+
+    def test_pin_failure_does_not_break_and_explains_how_to_fix(self):
+        from radar.telegram import TelegramError
+        tg = self.TG(pin_error=TelegramError("HTTP 400 not enough rights to manage pinned messages", definite=True, status=400))
+        pub = __import__("radar.publish", fromlist=["x"]).publish
+        r = NAV.send_nav(tg, pub, self.ledger, self.ENV, self.SETTINGS, "2026-11-09", self.parts("2026-11-09", [("谷歌趋势", "国际")]), log=lambda *_: None)
+        self.assertEqual((r["status"], r["pin"]), ("sent", "failed"))
+        self.assertIn("编辑其他人的消息", r["note"])
+        self.assertEqual(len(tg.sent), 1)                                          # 导航本身已发出
+
+    def test_missing_channel_id_format_is_reported_not_crashed(self):
+        r = NAV.send_nav(self.TG(), None, self.ledger, {"TELEGRAM_CHAT_ID": "12345"}, self.SETTINGS, "2026-11-09", [], log=lambda *_: None)
+        self.assertEqual(r["status"], "nolink")
+        self.assertIn("TELEGRAM_CHAT_ID", r["note"])
+
+    def test_meta_is_inferred_from_config_for_older_frozen_messages(self):
+        cfgs = config.load_sources()
+        self.assertEqual(NAV.meta_from_config("豆瓣榜单", cfgs)["group"], "榜单")
+        self.assertEqual(NAV.meta_from_config("微博热搜", cfgs)["group"], "国内")
+        self.assertEqual(NAV.meta_from_config("谷歌趋势", cfgs)["group"], "国际")
+        self.assertEqual(NAV.meta_from_config("成人平台行业观察", cfgs)["group"], "其他")
+        self.assertIsNone(NAV.meta_from_config("不存在的渠道", cfgs))
+
+    def test_can_be_disabled(self):
+        st = dict(self.SETTINGS, nav={"enabled": False})
+        self.assertEqual(NAV.send_nav(self.TG(), None, self.ledger, self.ENV, st, "2026-11-09", [])["status"], "disabled")
+
+
 class ReportAndLimitTests(unittest.TestCase):
     def test_admin_report_stays_under_telegram_limit_even_with_many_failures(self):
         from radar import health
@@ -1197,6 +1321,14 @@ class EndToEndTests(unittest.TestCase):
             EndToEndTests.FakeTG.sent.append((chat, text))
             return len(EndToEndTests.FakeTG.sent)
 
+        pins, unpins = [], []
+
+        def pin(self, chat, mid):
+            EndToEndTests.FakeTG.pins.append((chat, mid))
+
+        def unpin(self, chat, mid):
+            EndToEndTests.FakeTG.unpins.append((chat, mid))
+
         def get_updates(self, offset=None):
             return []
 
@@ -1250,13 +1382,14 @@ class EndToEndTests(unittest.TestCase):
     def test_full_run(self):
         tmp = Path(tempfile.mkdtemp())
         self.FakeTG.sent = []
+        self.FakeTG.pins, self.FakeTG.unpins = [], []
         env = {"TELEGRAM_BOT_TOKEN": "t", "TELEGRAM_CHAT_ID": "-100", "ADMIN_CHAT_ID": "99", "DRAMA_CHAT_ID": "-200",
                "RADAR_SETTINGS_JSON": json.dumps({"free_translate": {"enabled": False}})}
         patches = [mock.patch.dict(os.environ, env, clear=False),
                    mock.patch.object(http, "fetch", side_effect=self.route),
                    mock.patch.object(http, "fetch_json", side_effect=self.route_json),
                    mock.patch.object(cli, "Telegram", self.FakeTG)]
-        for mod in (state, cli, inbox):
+        for mod in (state, cli, inbox, NAV):
             patches.append(mock.patch.object(mod, "STATE", tmp / "state"))
         patches += [mock.patch.object(cli, "ARCHIVE", tmp / "archive"),
                     mock.patch.object(__import__("radar.translate", fromlist=["x"]), "STATE", tmp / "state")]
@@ -1285,6 +1418,15 @@ class EndToEndTests(unittest.TestCase):
             self.assertEqual(sum(title in t for t in main), 1, title)        # 每个渠道恰好一条消息
         for t in main:
             self.assertLessEqual(t.count("资讯</b>") + t.count("行业观察</b>"), 1)   # 一条消息里只有一个渠道
+        # 快捷导航：当天最后一条、置顶，且链接里的消息编号对应各渠道消息
+        sent_main = [(i + 1, t) for i, (c, t) in enumerate(self.FakeTG.sent) if c == "-100"]
+        nav_id, nav_text = sent_main[-1]
+        self.assertIn("📍 快捷导航", nav_text)
+        self.assertEqual(self.FakeTG.pins, [("-100", nav_id)])
+        by_title = {t.split("</b>")[0].split("<b>")[-1]: i for i, t in sent_main[:-1] if "<b>" in t}
+        google_id = next(i for title, i in by_title.items() if "谷歌趋势资讯" in title)
+        self.assertIn(f"/{google_id}\">", nav_text)                  # 导航里“谷歌趋势”的链接指向它自己的那条消息
+        self.assertIn("https://t.me/c/", nav_text)
         self.assertIn("Title A", texts)
         self.assertIn("抖音话题", texts)                          # 新增的国内来源进入日报
         self.assertNotIn("露骨内容", texts)

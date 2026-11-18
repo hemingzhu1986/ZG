@@ -55,6 +55,12 @@ class Telegram:
         self._last = time.time()
         return res["message_id"]
 
+    def pin(self, chat_id, message_id: int) -> None:
+        self.call("pinChatMessage", {"chat_id": chat_id, "message_id": message_id, "disable_notification": True})
+
+    def unpin(self, chat_id, message_id: int) -> None:
+        self.call("unpinChatMessage", {"chat_id": chat_id, "message_id": message_id})
+
     def get_updates(self, offset: int | None = None) -> list[dict]:
         payload = {"timeout": 0, "allowed_updates": ["message"]}
         if offset is not None:

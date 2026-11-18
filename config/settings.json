@@ -53,5 +53,10 @@
   },
   "chart": {
     "enabled": true
+  },
+  "nav": {
+    "enabled": true,
+    "pin": true,
+    "keep_days": 7
   }
 }

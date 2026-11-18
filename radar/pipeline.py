@@ -149,7 +149,10 @@ def build_daily(date: str, now_utc: dt.datetime, settings, sources_cfg, lex, env
         key, text, shown = fn(date, meta, rows, limit)
         cstats.append({"name": meta["channel"], "shown": shown})
         if text:
-            parts.append({"key": key, "chat_id": chats["main"], "text": text, "silent": bool(parts), "label": meta["channel"]})
+            from .nav import group_of
+            parts.append({"key": key, "chat_id": chats["main"], "text": text, "silent": bool(parts), "label": meta["channel"],
+                          "nav": {"name": meta["channel"], "emoji": meta.get("emoji", "📰"), "order": meta["channel_order"],
+                                  "group": group_of({i.section for i in rows}, any(i.region == "cn" for i in rows), meta["channel"])}})
     ed.channels = cstats
     ed.items = [i for rows in groups.values() for i in rows]
     drama_parts = _parts(R.render_drama(date, cards, news_items, limit), chats["drama"])

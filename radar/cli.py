@@ -147,6 +147,21 @@ def cmd_run(a) -> int:
         write_json(out / "report.json", {"gaps": ed.gaps, "drops": ed.drops, "enrich": ed.enrich_stats,
                                          "sources": [{"id": r.id, "status": r.status, "count": r.count,
                                                       "error": r.error} for r in ed.results]})
+    nav_res = None
+    if kind == "daily" and not res["failed"] and not res["uncertain"]:
+        from . import nav as navmod
+        main_parts = []
+        for p in parts:
+            if p.get("nav"):
+                main_parts.append(p)
+            elif p.get("label") and p.get("chat_id") == env.get("TELEGRAM_CHAT_ID"):     # 旧版冻结的消息：按配置推断
+                m = navmod.meta_from_config(p["label"], cfgs)
+                if m:
+                    main_parts.append(dict(p, nav=m))
+        nav_res = navmod.send_nav(tg, publish, ledger, env, settings, date, main_parts)
+        print(f"快捷导航：{nav_res['status']}｜置顶：{nav_res['pin']}" + (f"｜{nav_res['note']}" if nav_res["note"] else ""))
+        if ed is not None and nav_res["note"]:
+            ed.notes.append("⚠️ " + nav_res["note"])
     if not res["failed"] and not res["uncertain"]:
         ledger.mark(date, flag, True)
     if ed is not None and admin and (settings["admin"]["daily_summary"] or res["failed"] or res["uncertain"]):
