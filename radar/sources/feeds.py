@@ -62,6 +62,10 @@ def fetch_rss(cfg: dict, ctx) -> list[Item]:
         desc = strip_html(e.get("description") or e.get("summary") or e.get("content") or "")
         if desc.strip().lower() == title.strip().lower():
             desc = ""
+        elif desc.startswith(title):                       # Google 新闻：description＝“标题＋媒体名”，去掉重复的标题
+            desc = desc[len(title):].strip(" -—·|\u00a0")
+            if desc == (st or ""):
+                desc = ""
         text = title + " " + desc
         if inc and not inc.search(text):
             continue

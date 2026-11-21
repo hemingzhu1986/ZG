@@ -29,7 +29,10 @@ def doctor_details(results) -> str:
 
 def admin_report(date: str, results, gaps: dict, drops: dict, enrich_stats: dict, llm_on: bool,
                  publish_res: dict | None, notes: list[str], channels: list | None = None, mt_stats: dict | None = None) -> str:
-    bad = [r for r in results if r.status in ("error", "stale")]
+    ok_groups = {r.group for r in results if r.status == "ok" and r.group}
+    failed = [r for r in results if r.status in ("error", "stale")]
+    bad = [r for r in failed if not (r.group and r.group in ok_groups)]       # 同组已有来源成功：渠道不受影响，不算异常
+    harmless = len(failed) - len(bad)
     ch = channels or []
     sent = [c for c in ch if c["shown"]]
     lines = [f"<b>📋 雷达运行报告 {esc(date)}</b>",
@@ -63,7 +66,8 @@ def admin_report(date: str, results, gaps: dict, drops: dict, enrich_stats: dict
     ok_n = sum(1 for r in results if r.status == "ok")
     skip_n = sum(1 for r in results if r.status == "skipped")
     empty_n = sum(1 for r in results if r.status == "empty")
-    lines.append(f"\n<b>来源状态</b>：正常 {ok_n}｜无内容 {empty_n}｜跳过 {skip_n}｜异常 {len(bad)}")
+    lines.append(f"\n<b>来源状态</b>：正常 {ok_n}｜无内容 {empty_n}｜跳过 {skip_n}｜异常 {len(bad)}"
+                 + (f"｜备用/主源失败但渠道正常 {harmless}（不影响）" if harmless else ""))
     if bad:
         lines.append(source_table(bad))
     text = "\n".join(lines)

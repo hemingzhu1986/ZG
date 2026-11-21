@@ -1183,6 +1183,71 @@ class NavTests(unittest.TestCase):
         self.assertEqual(NAV.send_nav(self.TG(), None, self.ledger, self.ENV, st, "2026-11-09", [])["status"], "disabled")
 
 
+class SourceFixesTests(unittest.TestCase):
+    """运行报告里的失败项：Vulture 地址、小红书/TikTok/剧短短、DataEye 渠道、报告噪音。"""
+    GN = ("""<?xml version="1.0"?><rss version="2.0"><channel>
+<item><title>DataEye短剧&amp;漫剧日榜:AI仿真人剧包揽TOP5;《少夫人来自东北》空降榜首 - 澎湃新闻</title>
+<link>https://news.google.com/rss/articles/aaa</link><pubDate>%(now)s</pubDate>
+<description>&lt;a href="x"&gt;DataEye短剧&amp;amp;漫剧日榜:AI仿真人剧包揽TOP5;《少夫人来自东北》空降榜首&lt;/a&gt;&amp;nbsp;&amp;nbsp;澎湃新闻</description>
+<source url="https://www.thepaper.cn">澎湃新闻</source></item>
+<item><title>某地今日天气预报 - 某报</title><link>https://news.google.com/rss/articles/bbb</link><pubDate>%(now)s</pubDate><source url="https://x.cn">某报</source></item>
+<item><title>DataEye 研究院发布旧报告 - 36氪</title><link>https://news.google.com/rss/articles/ccc</link><pubDate>Mon, 01 Jan 2024 00:00:00 GMT</pubDate><source url="https://36kr.com">36氪</source></item>
+</channel></rss>""")
+
+    def test_dataeye_channel_reads_only_fresh_dataeye_articles_from_news_search(self):
+        from email.utils import formatdate
+        cfg = next(c for c in config.load_sources() if c["id"] == "dataeye_shortdrama")
+        body = (self.GN % {"now": formatdate(usegmt=True)}).encode()
+        ctx = S.Ctx(now=dt.datetime.now(dt.timezone.utc), env={}, settings=config.load_settings())
+        with mock.patch.object(http, "fetch", return_value=body):
+            items = feeds.fetch_rss(cfg, ctx)
+        self.assertEqual(len(items), 1)                                 # 只留 DataEye 相关 + 时效内
+        self.assertTrue(items[0].title.startswith("DataEye短剧&漫剧日榜"))
+        self.assertNotIn("澎湃新闻", items[0].title)                     # 媒体后缀已去掉
+        self.assertEqual(items[0].desc, "")                             # description 只是重复标题，去掉
+
+    def test_config_reflects_what_we_learned(self):
+        by = {c["id"]: c for c in config.load_sources()}
+        self.assertEqual(by["vulture_rss"]["url"], "https://feeds.feedburner.com/nymag/vulture")
+        for dead in ("xhs_tophub", "tiktok_trends", "duanju_charts"):
+            self.assertFalse(by[dead]["enabled"], dead)                 # 已不存在/拿不到/已停更的渠道不再报错
+        self.assertIn("取消热搜榜", by["xhs_tophub"]["_note"])
+        for de in ("dataeye_shortdrama", "dataeye_overseas"):
+            self.assertTrue(by[de]["enabled"])
+            self.assertIn("news.google.com/rss/search", by[de]["url"])
+        from radar import channels as CH
+        cfgs = config.load_sources()
+        names = {CH.channel_of(c) for c in cfgs}
+        self.assertEqual(len({CH.channel_meta(n, cfgs)["key"] for n in names}), len(names))
+
+    def test_fallback_failures_are_not_reported_as_anomalies_when_channel_is_fine(self):
+        from radar import health
+        R_ = SourceResult
+        res = [R_(id="zhihu_hot", name="知乎·热榜", status="error", error="HTTP 401", group="zhihu"),
+               R_(id="zhihu_tophub", name="知乎·热榜（聚合站备用）", status="ok", count=8, group="zhihu"),
+               R_(id="zhihu_rsshub", name="知乎·热榜（RSSHub 备用）", status="error", error="HTTP 403", group="zhihu"),
+               R_(id="vulture_rss", name="Vulture", status="error", error="HTTP 404")]
+        txt = health.admin_report("2026-11-12", res, {"selected": 8}, {}, {"llm": 1, "mt": 0, "raw": 0}, True, None, [],
+                                  [{"name": "知乎热榜", "shown": 8}])
+        self.assertIn("异常 1", txt)                                     # 只有 Vulture 算异常
+        self.assertIn("Vulture", txt)
+        self.assertNotIn("HTTP 401", txt)
+        self.assertIn("失败但渠道正常 2", txt)
+
+    def test_group_failing_entirely_is_still_reported(self):
+        from radar import health
+        R_ = SourceResult
+        res = [R_(id="a", name="甲主源", status="error", error="HTTP 500", group="g"),
+               R_(id="b", name="甲备用", status="error", error="HTTP 403", group="g")]
+        txt = health.admin_report("d", res, {"selected": 0}, {}, {"llm": 0, "mt": 0, "raw": 0}, True, None, [], [])
+        self.assertIn("异常 2", txt)                                     # 整组都失败：渠道真的没内容，必须报
+
+    def test_collect_sets_group_on_results(self):
+        cfgs = [{"id": "p", "name": "P", "type": "ok", "group": "g"}]
+        with mock.patch.object(S, "registry", return_value={"ok": lambda c, x: [mk("t", src=c["id"])]}):
+            self.assertEqual(C.collect(cfgs, CTX)[0].group, "g")
+
+
 class ReportAndLimitTests(unittest.TestCase):
     def test_admin_report_stays_under_telegram_limit_even_with_many_failures(self):
         from radar import health

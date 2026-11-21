@@ -48,3 +48,4 @@ class SourceResult:
     secs: float = 0.0
     items: list = field(default_factory=list)
     sample: str = ""            # 失败时的响应片段（≤300 字符），仅用于诊断
+    group: str = ""             # 备用源分组：同组有来源成功时，其他来源的失败不影响渠道

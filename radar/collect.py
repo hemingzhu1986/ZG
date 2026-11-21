@@ -9,7 +9,7 @@ from .models import SourceResult
 
 
 def _run_one(cfg: dict, ctx, reg: dict) -> SourceResult:
-    res = SourceResult(id=cfg["id"], name=cfg["name"])
+    res = SourceResult(id=cfg["id"], name=cfg["name"], group=cfg.get("group", ""))
     t0 = time.time()
     try:
         fn = reg[cfg["type"]]
@@ -44,5 +44,5 @@ def collect(source_cfgs: list[dict], ctx, only: set[str] | None = None) -> list[
         with ThreadPoolExecutor(max_workers=4) as pool:
             results += list(pool.map(lambda c: _run_one(c, ctx, reg), need))
     for c in skipped:
-        results.append(SourceResult(id=c["id"], name=c["name"], status="skipped", error="主源正常，未启用备用源"))
+        results.append(SourceResult(id=c["id"], name=c["name"], status="skipped", error="主源正常，未启用备用源", group=c.get("group", "")))
     return results
