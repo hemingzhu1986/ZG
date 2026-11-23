@@ -1,75 +1,83 @@
 {
   "channels": {
     "BBC 娱乐": {
-      "date": "2026-11-22",
+      "date": "2026-11-23",
       "emoji": "📰",
       "group": "国际",
       "key": "ch_bbc_ent_rss",
-      "message_id": 253,
+      "message_id": 274,
       "order": 70
     },
     "Billboard": {
-      "date": "2026-11-22",
+      "date": "2026-11-23",
       "emoji": "🎤",
       "group": "国际",
       "key": "ch_billboard_rss",
-      "message_id": 251,
+      "message_id": 272,
       "order": 66
     },
     "B站全站榜": {
-      "date": "2026-11-22",
+      "date": "2026-11-23",
       "emoji": "📺",
       "group": "国内",
       "key": "ch_bilibili_ranking",
-      "message_id": 258,
+      "message_id": 280,
       "order": 140
     },
+    "DataEye 短剧观察": {
+      "date": "2026-11-23",
+      "emoji": "📈",
+      "group": "国内",
+      "key": "ch_dataeye_shortdrama",
+      "message_id": 283,
+      "order": 175
+    },
     "Deadline": {
-      "date": "2026-11-22",
+      "date": "2026-11-23",
       "emoji": "🎬",
       "group": "国际",
       "key": "ch_deadline_rss",
-      "message_id": 247,
+      "message_id": 268,
       "order": 62
     },
     "Dexerto": {
-      "date": "2026-11-22",
+      "date": "2026-11-23",
       "emoji": "🎮",
       "group": "国际",
       "key": "ch_dexerto_rss",
-      "message_id": 245,
+      "message_id": 266,
       "order": 60
     },
     "IndieWire": {
-      "date": "2026-11-22",
+      "date": "2026-11-23",
       "emoji": "📰",
       "group": "国际",
       "key": "ch_indiewire_rss",
-      "message_id": 250,
+      "message_id": 271,
       "order": 65
     },
     "JustWatch 美国影视榜": {
-      "date": "2026-11-22",
+      "date": "2026-11-23",
       "emoji": "📊",
       "group": "榜单",
       "key": "ch_justwatch_us",
-      "message_id": 254,
+      "message_id": 276,
       "order": 80
     },
     "NME": {
-      "date": "2026-11-22",
+      "date": "2026-11-23",
       "emoji": "🎧",
       "group": "国际",
       "key": "ch_nme_rss",
-      "message_id": 252,
+      "message_id": 273,
       "order": 68
     },
     "NPR 文化": {
-      "date": "2026-11-21",
+      "date": "2026-11-23",
       "emoji": "📰",
       "group": "国际",
       "key": "ch_npr_rss",
-      "message_id": 233,
+      "message_id": 275,
       "order": 71
     },
     "Pitchfork": {
@@ -81,11 +89,11 @@
       "order": 67
     },
     "Vulture": {
-      "date": "2026-11-22",
+      "date": "2026-11-23",
       "emoji": "📰",
       "group": "国际",
       "key": "ch_vulture_rss",
-      "message_id": 249,
+      "message_id": 270,
       "order": 64
     },
     "卫报文化": {
@@ -97,88 +105,88 @@
       "order": 69
     },
     "好莱坞报道者": {
-      "date": "2026-11-22",
+      "date": "2026-11-23",
       "emoji": "🎬",
       "group": "国际",
       "key": "ch_thr_rss",
-      "message_id": 246,
+      "message_id": 267,
       "order": 61
     },
     "微博热搜": {
-      "date": "2026-11-22",
+      "date": "2026-11-23",
       "emoji": "🔥",
       "group": "国内",
       "key": "ch_weibo_hot",
-      "message_id": 255,
+      "message_id": 277,
       "order": 100
     },
     "抖音热榜": {
-      "date": "2026-11-22",
+      "date": "2026-11-23",
       "emoji": "🎶",
       "group": "国内",
       "key": "ch_douyin_hot",
-      "message_id": 256,
+      "message_id": 278,
       "order": 110
     },
     "抖音短剧日榜": {
-      "date": "2026-11-22",
+      "date": "2026-11-23",
       "emoji": "🎞",
       "group": "榜单",
       "key": "ch_duanju_gongcheng",
-      "message_id": 260,
+      "message_id": 282,
       "order": 160
     },
     "梗百科": {
-      "date": "2026-11-21",
+      "date": "2026-11-23",
       "emoji": "😂",
       "group": "国际",
       "key": "ch_kym_news",
-      "message_id": 222,
+      "message_id": 265,
       "order": 30
     },
     "滚石": {
-      "date": "2026-11-22",
+      "date": "2026-11-23",
       "emoji": "🎸",
       "group": "国际",
       "key": "ch_rollingstone_rss",
-      "message_id": 248,
+      "message_id": 269,
       "order": 63
     },
     "知乎热榜": {
-      "date": "2026-11-22",
+      "date": "2026-11-23",
       "emoji": "❓",
       "group": "国内",
       "key": "ch_zhihu_hot",
-      "message_id": 257,
+      "message_id": 279,
       "order": 120
     },
     "维基百科": {
-      "date": "2026-11-22",
+      "date": "2026-11-23",
       "emoji": "📚",
       "group": "国际",
       "key": "ch_wikipedia_top_en",
-      "message_id": 244,
+      "message_id": 264,
       "order": 20
     },
     "谷歌趋势": {
-      "date": "2026-11-22",
+      "date": "2026-11-23",
       "emoji": "🔍",
       "group": "国际",
       "key": "ch_google_trends_us",
-      "message_id": 243,
+      "message_id": 263,
       "order": 10
     },
     "豆瓣榜单": {
-      "date": "2026-11-22",
+      "date": "2026-11-23",
       "emoji": "🎬",
       "group": "榜单",
       "key": "ch_douban_movie_hot",
-      "message_id": 259,
+      "message_id": 281,
       "order": 150
     }
   },
   "nav": {
-    "date": "2026-11-22",
-    "message_id": 261
+    "date": "2026-11-23",
+    "message_id": 284
   }
 }
